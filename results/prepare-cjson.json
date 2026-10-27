@@ -1,0 +1,28 @@
+{
+ "schema_version": 1,
+ "corpus": "cjson",
+ "commit": "6d9f2443ab071f86e5d9b43025a40929ec41c46c",
+ "created": "2026-10-27T17:15:49+00:00",
+ "inputs": {
+  "spec": "69f320fc1a7ceccc",
+  "tree": "bfc29de921c8799c",
+  "version": 2,
+  "code": "df5f6949d76467ab",
+  "env": "fe40f23a8559c0bb"
+ },
+ "input_hash": "bdc942457d3131c6",
+ "ok": true,
+ "rc": 0,
+ "timed_out": false,
+ "sandbox": {
+  "image": "gcc:13",
+  "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",
+  "cpus": 1.0,
+  "memory": "1g",
+  "pids": 256,
+  "timeout_s": 120
+ },
+ "duration_s": 2.92,
+ "stdout_tail": "/print_number.c:105:print_number_should_print_non_number:IGNORE\n\n-----------------------\n6 Tests 0 Failures 1 Ignored \nOK\ntests/print_object.c:96:print_object_should_print_empty_objects:PASS\ntests/print_object.c:97:print_object_should_print_objects_with_one_element:PASS\ntests/print_object.c:98:print_object_should_print_objects_with_multiple_elements:PASS\n\n-----------------------\n3 Tests 0 Failures 0 Ignored \nOK\ntests/print_string.c:73:print_string_should_print_empty_strings:PASS\ntests/print_string.c:74:print_string_should_print_ascii:PASS\ntests/print_string.c:75:print_string_should_print_utf8:PASS\n\n-----------------------\n3 Tests 0 Failures 0 Ignored \nOK\ntests/print_value.c:98:print_value_should_print_null:PASS\ntests/print_value.c:99:print_value_should_print_true:PASS\ntests/print_value.c:100:print_value_should_print_false:PASS\ntests/print_value.c:101:print_value_should_print_number:PASS\ntests/print_value.c:102:print_value_should_print_string:PASS\ntests/print_value.c:103:print_value_should_print_array:PASS\ntests/print_value.c:104:print_value_should_print_object:PASS\n\n-----------------------\n7 Tests 0 Failures 0 Ignored \nOK\ntests/readme_examples.c:253:create_monitor_should_create_a_monitor:PASS\ntests/readme_examples.c:254:create_monitor_with_helpers_should_create_a_monitor:PASS\nChecking monitor \"Awesome 4K\"\nChecking monitor \"lame monitor\"\ntests/readme_examples.c:255:supports_full_hd_should_check_for_full_hd_support:PASS\n\n-----------------------\n3 Tests 0 Failures 0 Ignored \nOK\n",
+ "stderr_tail": ""
+}

@@ -1,0 +1,40 @@
+{
+  "name": "jsmn",
+  "url": "https://github.com/zserge/jsmn.git",
+  "commit": "25647e692c7906b96ffd2b05ca54c097948e879c",
+  "license": "MIT",
+  "project_files": [
+    "jsmn.h",
+    "test/test.h",
+    "test/testutil.h",
+    "test/tests.c"
+  ],
+  "target_files": [
+    "jsmn.h"
+  ],
+  "cflags": [
+    "-std=c99"
+  ],
+  "build_cmd": "set -e\nn=0\nfor d in \"\" \"-DJSMN_STRICT=1\" \"-DJSMN_PARENT_LINKS=1\" \"-DJSMN_STRICT=1 -DJSMN_PARENT_LINKS=1\"; do\n  n=$((n+1))\n  gcc -std=c99 -O0 -Wall $d $CFLAGS test/tests.c -o test/jsmn_test$n $LDFLAGS -lm\n  ./test/jsmn_test$n\ndone",
+  "test_cmd": null,
+  "pass_criteria": {
+    "exit_code": 0,
+    "stdout_regex": "(?s)(?:^FAILED: 0$.*?){4}",
+    "stdout_not_regex": "^FAILED: [1-9]"
+  },
+  "coverage": {
+    "env": {
+      "CFLAGS": "--coverage -O0",
+      "LDFLAGS": "--coverage"
+    }
+  },
+  "timeout_s": 30,
+  "notes": "头文件实现的库：目标函数在 jsmn.h 里，测试 tests.c 通过 test/testutil.h 直接 #include ../jsmn.h。四种配置（默认、JSMN_STRICT、JSMN_PARENT_LINKS、两者同时）逐个编译运行，与 Makefile 的 test 目标一致。tests.c 的 main 返回失败用例数，同时每次运行末尾打印「PASSED: n / FAILED: m」；四种配置各要打出一行 \"FAILED: 0\"，少一行就说明程序提前结束（候选在被测函数里 exit(0) 时退出码也是 0）。注意 test/test.h、test/testutil.h 不是自含的头文件（用了 printf / va_list 却没有自己 include stdio.h / stdarg.h），单独交给 libclang 解析会有错误，只有作为 tests.c 的一部分解析才干净；jsmn.h 本身自含。",
+  "vendored": [],
+  "keep_names": [
+    "JSMN_STRICT",
+    "JSMN_PARENT_LINKS"
+  ],
+  "allow_words": [],
+  "exclude_targets": []
+}

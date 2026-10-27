@@ -1,0 +1,49 @@
+{
+  "name": "inih",
+  "url": "https://github.com/benhoyt/inih.git",
+  "commit": "2d5ec7b59abbb8e1797e48060965001aaac6996a",
+  "license": "BSD-3-Clause",
+  "project_files": [
+    "ini.c",
+    "ini.h",
+    "tests/unittest.c",
+    "tests/unittest_alloc.c",
+    "tests/unittest_string.c",
+    "tests/unittest_file_error.c"
+  ],
+  "target_files": [
+    "ini.c"
+  ],
+  "cflags": [
+    "-std=c99"
+  ],
+  "build_cmd": "set -e\nt() {\n  n=$1; shift\n  gcc -std=c99 -O0 -Wall \"$@\" $CFLAGS -o tests/ut_$n $LDFLAGS\n  (cd tests && ./ut_$n > out_$n.txt)\n  diff tests/baseline_$n.txt tests/out_$n.txt\n}\nt multi ini.c tests/unittest.c\nt multi_max_line ini.c -DINI_MAX_LINE=20 tests/unittest.c\nt single ini.c -DINI_ALLOW_MULTILINE=0 tests/unittest.c\nt disallow_inline_comments ini.c -DINI_ALLOW_INLINE_COMMENTS=0 tests/unittest.c\nt stop_on_first_error ini.c -DINI_STOP_ON_FIRST_ERROR=1 tests/unittest.c\nt handler_lineno ini.c -DINI_HANDLER_LINENO=1 tests/unittest.c\nt string ini.c -DINI_MAX_LINE=20 tests/unittest_string.c\nt heap ini.c -DINI_USE_STACK=0 tests/unittest.c\nt heap_max_line ini.c -DINI_USE_STACK=0 -DINI_MAX_LINE=20 -DINI_INITIAL_ALLOC=20 tests/unittest.c\nt heap_realloc ini.c -DINI_USE_STACK=0 -DINI_ALLOW_REALLOC=1 -DINI_INITIAL_ALLOC=5 tests/unittest.c\nt heap_realloc_max_line ini.c -DINI_USE_STACK=0 -DINI_MAX_LINE=20 -DINI_ALLOW_REALLOC=1 -DINI_INITIAL_ALLOC=5 tests/unittest.c\nt heap_string ini.c -DINI_USE_STACK=0 -DINI_MAX_LINE=20 -DINI_INITIAL_ALLOC=20 tests/unittest_string.c\nt call_handler_on_new_section ini.c -DINI_CALL_HANDLER_ON_NEW_SECTION=1 tests/unittest.c\nt allow_no_value ini.c -DINI_ALLOW_NO_VALUE=1 tests/unittest.c\nt alloc -DINI_CUSTOM_ALLOCATOR=1 -DINI_USE_STACK=0 -DINI_ALLOW_REALLOC=1 -DINI_INITIAL_ALLOC=12 ini.c tests/unittest_alloc.c\nt file_error ini.c tests/unittest_file_error.c",
+  "test_cmd": null,
+  "pass_criteria": {
+    "exit_code": 0
+  },
+  "coverage": {
+    "env": {
+      "CFLAGS": "--coverage -O0",
+      "LDFLAGS": "--coverage"
+    }
+  },
+  "timeout_s": 30,
+  "notes": "测试靠「程序输出与仓库里的 baseline_*.txt 逐字对比」判定。tests/unittest.sh 不能直接用：它用 > 重写 baseline，失败只留在 git diff 里，脚本自己的退出码永远是 0（最后一条是 rm）。这里改成与 tests/meson.build 的 runtest.sh 一致的做法：16 个变体（同 unittest.sh）逐个在项目根编译，进 tests/ 运行，输出写到 out_*.txt 后与 baseline_*.txt 做 diff，任何差异（diff 退出码 1）或崩溃都让整体退出码非 0。变体靠命令行 -DINI_* 切换，这些宏在 ini.c 里又有 #ifndef 默认值，符号混淆若把它们改名，命令行开关就失效，所以全部列入 keep_names。",
+  "vendored": [],
+  "keep_names": [
+    "INI_MAX_LINE",
+    "INI_ALLOW_MULTILINE",
+    "INI_ALLOW_INLINE_COMMENTS",
+    "INI_STOP_ON_FIRST_ERROR",
+    "INI_HANDLER_LINENO",
+    "INI_USE_STACK",
+    "INI_INITIAL_ALLOC",
+    "INI_ALLOW_REALLOC",
+    "INI_CALL_HANDLER_ON_NEW_SECTION",
+    "INI_ALLOW_NO_VALUE",
+    "INI_CUSTOM_ALLOCATOR"
+  ],
+  "allow_words": [],
+  "exclude_targets": []
+}

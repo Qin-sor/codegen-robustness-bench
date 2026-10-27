@@ -1,0 +1,37 @@
+{
+  "name": "tiny-regex-c",
+  "url": "https://github.com/kokke/tiny-regex-c.git",
+  "commit": "f2632c6d9ed25272987471cdb8b70395c2460bdb",
+  "license": "Unlicense",
+  "project_files": [
+    "re.c",
+    "re.h",
+    "tests/test1.c",
+    "tests/test_compile.c"
+  ],
+  "target_files": [
+    "re.c"
+  ],
+  "cflags": [
+    "-std=c99",
+    "-I."
+  ],
+  "build_cmd": "set -e\nfor t in test1 test_compile; do\n  gcc -std=c99 -O2 -Wall -Wextra -I. $CFLAGS re.c tests/$t.c -o tests/$t.bin $LDFLAGS -lm\n  ./tests/$t.bin\ndone",
+  "test_cmd": null,
+  "pass_criteria": {
+    "exit_code": 0,
+    "stdout_regex": "(\\d+)/\\1 tests succeeded"
+  },
+  "coverage": {
+    "env": {
+      "CFLAGS": "--coverage -O0",
+      "LDFLAGS": "--coverage"
+    }
+  },
+  "timeout_s": 30,
+  "notes": "Makefile 的 make test 依赖 python（随机对拍），不用。显式 gcc 编译运行 tests/test1.c（76 条手选用例，main 返回失败数）与 tests/test_compile.c（assert 型，检查非法模式被拒绝）。tests/test2.c 是约 4 s 的最坏情形性能测试，没有任何断言，每次评测白白多 4 s，不收；test_rand 系列依赖 python，也不收。tests/*.c 用 #include \"re.h\"，需要 -I.（相对项目根）。test1 开头的 stdout_regex 要求 \"N/N tests succeeded\"，分子分母相等才算全过。",
+  "vendored": [],
+  "keep_names": [],
+  "allow_words": [],
+  "exclude_targets": []
+}

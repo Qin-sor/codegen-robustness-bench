@@ -1,0 +1,39 @@
+{
+ "schema_version": 1,
+ "corpus": "tiny-regex-c",
+ "created": "2026-10-27T17:16:07+00:00",
+ "inputs": {
+  "spec": "a21c46406b978b18",
+  "tree": "70797e7b96c7c5b3",
+  "version": 2,
+  "code": "8e27d2d0c47d9faf",
+  "env": "fe40f23a8559c0bb"
+ },
+ "input_hash": "71ff556bee669125",
+ "ok": true,
+ "problems": [],
+ "n_gcda": 4,
+ "n_gcda_failed": 0,
+ "n_functions": 18,
+ "n_executed": 17,
+ "counts": {
+  "re.c:ismetachar": 2,
+  "re.c:matchalpha": 73,
+  "re.c:matchalphanum": 75,
+  "re.c:matchcharclass": 121,
+  "re.c:matchdigit": 147,
+  "re.c:matchdot": 57,
+  "re.c:matchmetachar": 26,
+  "re.c:matchone": 612,
+  "re.c:matchpattern": 352,
+  "re.c:matchplus": 47,
+  "re.c:matchquestion": 97,
+  "re.c:matchrange": 258,
+  "re.c:matchstar": 19,
+  "re.c:matchwhitespace": 37,
+  "re.c:re_compile": 78,
+  "re.c:re_match": 76,
+  "re.c:re_matchp": 76,
+  "re.c:re_print": 0
+ }
+}

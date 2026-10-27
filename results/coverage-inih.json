@@ -1,0 +1,31 @@
+{
+ "schema_version": 1,
+ "corpus": "inih",
+ "created": "2026-10-27T17:16:02+00:00",
+ "inputs": {
+  "spec": "5fb74d3c865c3f49",
+  "tree": "939c2e457d3d93cd",
+  "version": 2,
+  "code": "8e27d2d0c47d9faf",
+  "env": "fe40f23a8559c0bb"
+ },
+ "input_hash": "c63822b8773939ad",
+ "ok": true,
+ "problems": [],
+ "n_gcda": 32,
+ "n_gcda_failed": 0,
+ "n_functions": 10,
+ "n_executed": 10,
+ "counts": {
+  "ini.c:ini_find_chars_or_comment": 1478,
+  "ini.c:ini_lskip": 1907,
+  "ini.c:ini_parse": 156,
+  "ini.c:ini_parse_file": 145,
+  "ini.c:ini_parse_stream": 158,
+  "ini.c:ini_parse_string": 13,
+  "ini.c:ini_parse_string_length": 13,
+  "ini.c:ini_reader_string": 51,
+  "ini.c:ini_rstrip": 2507,
+  "ini.c:ini_strncpy0": 776
+ }
+}

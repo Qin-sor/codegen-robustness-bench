@@ -1,0 +1,93 @@
+{
+ "schema_version": 1,
+ "corpus": "tiny-regex-c",
+ "level": "L0",
+ "seed": 20261027,
+ "created": "2026-10-27T17:22:54+00:00",
+ "inputs": {
+  "spec": "a21c46406b978b18",
+  "pristine": "70797e7b96c7c5b3",
+  "level": "L0",
+  "seed": 20261027,
+  "strict": null,
+  "targets": "82de2918730e3f02",
+  "version": 1,
+  "code": "cf3da71fe7c9228e",
+  "clang": null,
+  "env": "fe40f23a8559c0bb"
+ },
+ "input_hash": "8b60054b21e2f989",
+ "strict_stringify": false,
+ "tree_hash": "70797e7b96c7c5b3",
+ "ok": true,
+ "problems": [],
+ "elapsed_s": 0.56,
+ "rename_map": {},
+ "stats": {
+  "level": "L0",
+  "seed": 20261027,
+  "attempts": [
+   {
+    "strict_stringify": null,
+    "ok": true,
+    "build_rc": 0,
+    "missing": 0
+   }
+  ]
+ },
+ "verify": {
+  "ok": true,
+  "build_rc": 0,
+  "stdout_tail": "76/76 tests succeeded.\n\n\n\n",
+  "relocated": 8,
+  "missing": [],
+  "tests_passed": true,
+  "timed_out": false,
+  "duration_s": 0.5154750499932561,
+  "n_targets": 8
+ },
+ "oracle_gate": {
+  "checked": 8,
+  "passed": 8,
+  "failed": [],
+  "copy_invalid": false,
+  "checked_ids": [
+   "tiny-regex-c:re.c:matchcharclass",
+   "tiny-regex-c:re.c:matchmetachar",
+   "tiny-regex-c:re.c:matchone",
+   "tiny-regex-c:re.c:matchpattern",
+   "tiny-regex-c:re.c:matchplus",
+   "tiny-regex-c:re.c:matchquestion",
+   "tiny-regex-c:re.c:matchstar",
+   "tiny-regex-c:re.c:re_matchp"
+  ],
+  "passed_ids": [
+   "tiny-regex-c:re.c:matchcharclass",
+   "tiny-regex-c:re.c:matchmetachar",
+   "tiny-regex-c:re.c:matchone",
+   "tiny-regex-c:re.c:matchpattern",
+   "tiny-regex-c:re.c:matchplus",
+   "tiny-regex-c:re.c:matchquestion",
+   "tiny-regex-c:re.c:matchstar",
+   "tiny-regex-c:re.c:re_matchp"
+  ],
+  "inputs": {
+   "obf": "8b60054b21e2f989",
+   "tree": "70797e7b96c7c5b3",
+   "targets": "82de2918730e3f02",
+   "version": 2,
+   "code": "6ec45e679e436985",
+   "env": "f66539fef467dd81"
+  },
+  "input_hash": "f58907b9fc2f48c7",
+  "created": "2026-10-27T17:29:13+00:00",
+  "sandbox": {
+   "image": "gcc:13",
+   "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",
+   "cpus": 1.0,
+   "memory": "1g",
+   "pids": 256,
+   "timeout_s": 120
+  }
+ }
+}

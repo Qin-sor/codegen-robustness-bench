@@ -1,0 +1,29 @@
+{
+ "schema_version": 1,
+ "corpus": "vec",
+ "created": "2026-10-27T17:16:08+00:00",
+ "inputs": {
+  "spec": "7e02ce4f57ddfca4",
+  "tree": "892b82047e4afa9d",
+  "version": 2,
+  "code": "8e27d2d0c47d9faf",
+  "env": "fe40f23a8559c0bb"
+ },
+ "input_hash": "4733e0382098dcf7",
+ "ok": true,
+ "problems": [],
+ "n_gcda": 2,
+ "n_gcda_failed": 0,
+ "n_functions": 8,
+ "n_executed": 8,
+ "counts": {
+  "src/vec.c:vec_compact_": 2,
+  "src/vec.c:vec_expand_": 5106,
+  "src/vec.c:vec_insert_": 1004,
+  "src/vec.c:vec_reserve_": 7,
+  "src/vec.c:vec_reserve_po2_": 3,
+  "src/vec.c:vec_splice_": 4,
+  "src/vec.c:vec_swap_": 6,
+  "src/vec.c:vec_swapsplice_": 2
+ }
+}

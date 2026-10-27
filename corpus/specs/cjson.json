@@ -1,0 +1,67 @@
+{
+  "name": "cjson",
+  "url": "https://github.com/DaveGamble/cJSON.git",
+  "commit": "6d9f2443ab071f86e5d9b43025a40929ec41c46c",
+  "license": "MIT",
+  "project_files": [
+    "cJSON.c",
+    "cJSON.h",
+    "cJSON_Utils.c",
+    "cJSON_Utils.h",
+    "test.c",
+    "tests/cjson_add.c",
+    "tests/common.h",
+    "tests/compare_tests.c",
+    "tests/json_patch_tests.c",
+    "tests/minify_tests.c",
+    "tests/misc_tests.c",
+    "tests/misc_utils_tests.c",
+    "tests/old_utils_tests.c",
+    "tests/parse_array.c",
+    "tests/parse_examples.c",
+    "tests/parse_hex4.c",
+    "tests/parse_number.c",
+    "tests/parse_object.c",
+    "tests/parse_string.c",
+    "tests/parse_value.c",
+    "tests/parse_with_opts.c",
+    "tests/print_array.c",
+    "tests/print_number.c",
+    "tests/print_object.c",
+    "tests/print_string.c",
+    "tests/print_value.c",
+    "tests/readme_examples.c",
+    "tests/unity/src/unity.c",
+    "tests/unity/src/unity.h",
+    "tests/unity/src/unity_internals.h",
+    "tests/unity/examples/unity_config.h"
+  ],
+  "target_files": [
+    "cJSON.c",
+    "cJSON_Utils.c"
+  ],
+  "cflags": [
+    "-std=c89"
+  ],
+  "build_cmd": "set -e\ngcc -std=c89 -O0 $CFLAGS -c tests/unity/src/unity.c -o tests/unity.o\nfor f in tests/*.c; do\n  t=$(basename $f .c)\n  [ $t = unity_setup ] && continue\n  extra=\"\"\n  case $t in json_patch_tests|old_utils_tests|misc_utils_tests) extra=cJSON_Utils.c;; esac\n  gcc -std=c89 -O0 $CFLAGS $f $extra tests/unity.o -o tests/$t.bin -lm $LDFLAGS\n  out=$(cd tests && ./$t.bin)\n  printf '%s\\n' \"$out\"\n  printf '%s\\n' \"$out\" | grep -Eq '^[0-9]+ Tests 0 Failures [0-9]+ Ignored' || { echo \"bench: $t 没有 Unity 汇总行\" >&2; exit 1; }\ndone\ngcc -std=c89 -O0 $CFLAGS cJSON.c test.c -o cJSON_test -lm $LDFLAGS\n./cJSON_test > /dev/null",
+  "test_cmd": null,
+  "pass_criteria": {
+    "exit_code": 0
+  },
+  "coverage": {
+    "env": {
+      "CFLAGS": "--coverage -O0",
+      "LDFLAGS": "--coverage"
+    }
+  },
+  "timeout_s": 30,
+  "notes": "不走 Makefile：make test 只编 cJSON.c + test.c（后者基本不做断言）且带 -Werror，cJSON_Utils.c 根本不参与。改为显式 gcc：逐个编译并运行 tests/ 下的 Unity 用例（21 个文件；各自通过 common.h #include ../cJSON.c，所以能测到 static 函数；json_patch_tests / old_utils_tests / misc_utils_tests 另链 cJSON_Utils.c；用例按相对路径读 tests/inputs 和 tests/json-patch-tests，必须在 tests/ 目录下运行），最后编译运行根目录 test.c。Unity 在 tests/unity，列入 vendored。unity_setup.c 只给 MSVC 用，不在构建里也不在 project_files 里。去掉 -Werror，保留 -std=c89。失败时 Unity 以失败数作退出码；另外每个 Unity 可执行文件必须打出「N Tests 0 Failures M Ignored」汇总行，缺了就让构建命令非零退出——候选在被测函数里提前 exit(0) 时程序以 0 退出，只看退出码会误判通过。 allow_words 放行 codepoint：Unicode 术语，描述 \\u 转义的处理时没有别的说法。",
+  "vendored": [
+    "tests/unity"
+  ],
+  "keep_names": [],
+  "allow_words": [
+    "codepoint"
+  ],
+  "exclude_targets": []
+}

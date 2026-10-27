@@ -1,0 +1,17 @@
+[project]
+name = "codegen-robustness-bench"
+version = "0.2.0"
+description = "大模型代码生成鲁棒性评测平台：用不同强度的 C 代码混淆检验模型是靠理解还是靠记忆"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["clang==14.0"]
+
+[project.optional-dependencies]
+dev = ["pytest", "pyflakes"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "needs_docker: 需要 docker 与沙箱镜像（缺则跳过，BENCH_REQUIRE_DOCKER=1 时失败）",
+]

@@ -1,0 +1,87 @@
+{
+ "schema_version": 1,
+ "corpus": "jsmn",
+ "level": "L0",
+ "seed": 20261027,
+ "created": "2026-10-27T17:22:19+00:00",
+ "inputs": {
+  "spec": "bd6d15bfac089cfd",
+  "pristine": "9449be73025fd3d9",
+  "level": "L0",
+  "seed": 20261027,
+  "strict": null,
+  "targets": "77c075b32583576b",
+  "version": 1,
+  "code": "cf3da71fe7c9228e",
+  "clang": null,
+  "env": "fe40f23a8559c0bb"
+ },
+ "input_hash": "e3688e8f3067d445",
+ "strict_stringify": false,
+ "tree_hash": "9449be73025fd3d9",
+ "ok": true,
+ "problems": [],
+ "elapsed_s": 0.54,
+ "rename_map": {},
+ "stats": {
+  "level": "L0",
+  "seed": 20261027,
+  "attempts": [
+   {
+    "strict_stringify": null,
+    "ok": true,
+    "build_rc": 0,
+    "missing": 0
+   }
+  ]
+ },
+ "verify": {
+  "ok": true,
+  "build_rc": 0,
+  "stdout_tail": "\nPASSED: 16\nFAILED: 0\n\nPASSED: 16\nFAILED: 0\n\nPASSED: 16\nFAILED: 0\n\nPASSED: 16\nFAILED: 0\n",
+  "relocated": 5,
+  "missing": [],
+  "tests_passed": true,
+  "timed_out": false,
+  "duration_s": 0.5155044319981243,
+  "n_targets": 5
+ },
+ "oracle_gate": {
+  "checked": 5,
+  "passed": 5,
+  "failed": [],
+  "copy_invalid": false,
+  "checked_ids": [
+   "jsmn:jsmn.h:jsmn_alloc_token",
+   "jsmn:jsmn.h:jsmn_fill_token",
+   "jsmn:jsmn.h:jsmn_init",
+   "jsmn:jsmn.h:jsmn_parse_primitive",
+   "jsmn:jsmn.h:jsmn_parse_string"
+  ],
+  "passed_ids": [
+   "jsmn:jsmn.h:jsmn_alloc_token",
+   "jsmn:jsmn.h:jsmn_fill_token",
+   "jsmn:jsmn.h:jsmn_init",
+   "jsmn:jsmn.h:jsmn_parse_primitive",
+   "jsmn:jsmn.h:jsmn_parse_string"
+  ],
+  "inputs": {
+   "obf": "e3688e8f3067d445",
+   "tree": "9449be73025fd3d9",
+   "targets": "77c075b32583576b",
+   "version": 2,
+   "code": "6ec45e679e436985",
+   "env": "f66539fef467dd81"
+  },
+  "input_hash": "0dafabe13fb630ac",
+  "created": "2026-10-27T17:26:00+00:00",
+  "sandbox": {
+   "image": "gcc:13",
+   "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",
+   "cpus": 1.0,
+   "memory": "1g",
+   "pids": 256,
+   "timeout_s": 120
+  }
+ }
+}

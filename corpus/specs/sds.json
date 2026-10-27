@@ -1,0 +1,42 @@
+{
+  "name": "sds",
+  "url": "https://github.com/antirez/sds.git",
+  "commit": "5347739b1581fcba74fd5cab1fc21d2aef317d71",
+  "license": "BSD-2-Clause",
+  "project_files": [
+    "sds.c",
+    "sds.h",
+    "sdsalloc.h",
+    "testhelp.h"
+  ],
+  "target_files": [
+    "sds.c"
+  ],
+  "cflags": [
+    "-std=c99",
+    "-DSDS_TEST_MAIN"
+  ],
+  "build_cmd": "set -e\ngcc -std=c99 -Wall -O2 -DSDS_TEST_MAIN $CFLAGS -o sds-test sds.c $LDFLAGS -lm\n./sds-test",
+  "test_cmd": null,
+  "pass_criteria": {
+    "exit_code": 0,
+    "stdout_regex": "\\d+ tests, \\d+ passed, 0 failed",
+    "stdout_not_regex": ": FAILED"
+  },
+  "coverage": {
+    "env": {
+      "CFLAGS": "--coverage -O0",
+      "LDFLAGS": "--coverage"
+    }
+  },
+  "timeout_s": 30,
+  "notes": "测试 main 由 -DSDS_TEST_MAIN 编进 sds.c 自身（末尾的 sdsTest + main，include testhelp.h）；cflags 也带这个宏，libclang 才看得到测试段。失败时 test_report() exit(1)；pass_criteria 要求末尾的汇总行「N tests, N passed, 0 failed」（候选在被测函数里 exit(0) 时没有这一行），再加一道 \": FAILED\" 兜底。sdsTest 是编进 sds.c 的测试驱动，把它换成桩汇总行就没了，会被误判成「杀死」，所以用 exclude_targets 明确排除，不再靠它碰巧超过 max_lines。去掉 -pedantic，保留 -std=c99 -O2。",
+  "vendored": [],
+  "keep_names": [
+    "SDS_TEST_MAIN"
+  ],
+  "allow_words": [],
+  "exclude_targets": [
+    "sdsTest"
+  ]
+}

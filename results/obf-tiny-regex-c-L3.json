@@ -1,0 +1,338 @@
+{
+ "schema_version": 1,
+ "corpus": "tiny-regex-c",
+ "level": "L3",
+ "seed": 20261027,
+ "created": "2026-10-27T17:22:56+00:00",
+ "inputs": {
+  "spec": "a21c46406b978b18",
+  "pristine": "70797e7b96c7c5b3",
+  "level": "L3",
+  "seed": 20261027,
+  "strict": null,
+  "targets": "82de2918730e3f02",
+  "version": 1,
+  "code": "cf3da71fe7c9228e",
+  "clang": {
+   "python_binding": "14.0",
+   "library": "libclang.so.1",
+   "builtin_include": "497c403da4c32f51"
+  },
+  "env": "fe40f23a8559c0bb"
+ },
+ "input_hash": "a1994275c5802dd0",
+ "strict_stringify": false,
+ "tree_hash": "b92dc4169fe53dc9",
+ "ok": true,
+ "problems": [],
+ "elapsed_s": 0.9,
+ "rename_map": {
+  "MAX_CHAR_CLASS_LEN": "M_3",
+  "MAX_REGEXP_OBJECTS": "M_5",
+  "NOK": "M_4",
+  "OK": "M_2",
+  "RE_DOT_MATCHES_NEWLINE": "M_1",
+  "ismetachar": "f_17",
+  "matchalpha": "f_7",
+  "matchalphanum": "f_10",
+  "matchcharclass": "f_3",
+  "matchdigit": "f_11",
+  "matchdot": "f_2",
+  "matchmetachar": "f_8",
+  "matchone": "f_13",
+  "matchpattern": "f_18",
+  "matchplus": "f_15",
+  "matchquestion": "f_5",
+  "matchrange": "f_9",
+  "matchstar": "f_6",
+  "matchwhitespace": "f_16",
+  "re_compile": "f_1",
+  "re_match": "f_12",
+  "re_matchp": "f_14",
+  "re_print": "f_4",
+  "ccl": "m_4",
+  "ch": "m_2",
+  "type": "m_3",
+  "u": "m_1",
+  "re_t": "t_2",
+  "regex_t": "t_1",
+  "ALPHA": "v_11",
+  "BEGIN": "v_7",
+  "CHAR": "v_30",
+  "CHAR_CLASS": "v_12",
+  "DIGIT": "v_21",
+  "DOT": "v_9",
+  "END": "v_5",
+  "INV_CHAR_CLASS": "v_19",
+  "NOT_ALPHA": "v_38",
+  "NOT_DIGIT": "v_17",
+  "NOT_WHITESPACE": "v_13",
+  "PLUS": "v_37",
+  "QUESTIONMARK": "v_29",
+  "STAR": "v_4",
+  "UNUSED": "v_23",
+  "WHITESPACE": "v_36",
+  "buf_begin": "v_34",
+  "c": "v_20",
+  "ccl_buf": "v_18",
+  "ccl_bufidx": "v_1",
+  "correctlen": "v_33",
+  "i": "v_26",
+  "idx": "v_40",
+  "j": "v_25",
+  "length": "v_16",
+  "m": "v_10",
+  "matchlength": "v_3",
+  "nfailed": "v_39",
+  "ntests": "v_32",
+  "p": "v_27",
+  "pattern": "v_8",
+  "pre": "v_6",
+  "prelen": "v_2",
+  "prepoint": "v_28",
+  "re_compiled": "v_15",
+  "should_fail": "v_24",
+  "str": "v_31",
+  "test_vector": "v_35",
+  "text": "v_22",
+  "types": "v_14"
+ },
+ "stats": {
+  "level": "L3",
+  "seed": 20261027,
+  "symbols": {
+   "files_total": 4,
+   "files_vendored": 0,
+   "configs": 1,
+   "entities_declared": 71,
+   "entities_renamed": 69,
+   "entities_excluded": 2,
+   "dropped_unseen": 0,
+   "renamed_by_kind": {
+    "macro": 5,
+    "func": 18,
+    "type": 2,
+    "field": 4,
+    "var": 40
+   },
+   "excluded_by_reason": {
+    "entry": 1,
+    "reserved_prefix": 1
+   },
+   "excluded_stringify": [],
+   "stringified_names_renamed": [
+    "re_compile"
+   ],
+   "func_name_uses": 0,
+   "strict_stringify": false,
+   "exclusion_set_size": 1107,
+   "external_names": 950,
+   "parse_error_files": {},
+   "level": "L1",
+   "seed": 20261027,
+   "files_changed": 4,
+   "tokens_replaced": 752,
+   "renamed_by_prefix": {
+    "M": 5,
+    "f": 18,
+    "m": 4,
+    "t": 2,
+    "v": 40
+   },
+   "baseline_errors": 0,
+   "reparse_errors": 0
+  },
+  "structure": {
+   "for_to_while": 2,
+   "if_else_swap": 7,
+   "compound_assign": 2,
+   "ternary_return": 0,
+   "decl_split": 0,
+   "total": 11,
+   "candidates": {
+    "for_to_while": 3,
+    "if_else_swap": 13,
+    "compound_assign": 9,
+    "ternary_return": 1,
+    "decl_split": 0
+   },
+   "skipped": {
+    "for_to_while": {},
+    "if_else_swap": {},
+    "compound_assign": {},
+    "ternary_return": {},
+    "decl_split": {}
+   },
+   "rolled_back": {
+    "for_to_while": 0,
+    "if_else_swap": 0,
+    "compound_assign": 0,
+    "ternary_return": 0,
+    "decl_split": 0
+   },
+   "overlap_dropped": 0,
+   "files_total": 4,
+   "files_changed": 2,
+   "files_skipped": {},
+   "files": {
+    "re.c": {
+     "applied": {
+      "for_to_while": 1,
+      "if_else_swap": 6,
+      "compound_assign": 2
+     }
+    },
+    "tests/test1.c": {
+     "applied": {
+      "for_to_while": 1,
+      "if_else_swap": 1
+     }
+    }
+   },
+   "seed": 20261027,
+   "ratio": 0.5,
+   "kinds": [
+    "for_to_while",
+    "if_else_swap",
+    "compound_assign",
+    "ternary_return",
+    "decl_split"
+   ]
+  },
+  "semantic": {
+   "relation_flip": 1,
+   "de_morgan": 0,
+   "eq_zero": 5,
+   "commute": 2,
+   "opaque": 20,
+   "total": 28,
+   "candidates": {
+    "relation_flip": 1,
+    "de_morgan": 0,
+    "eq_zero": 18,
+    "commute": 9,
+    "opaque": 20
+   },
+   "skipped": {
+    "relation_flip": {
+     "范围含宏调用 / 预处理指令 / 内建宏": 6,
+     "操作数不是原子表达式": 2,
+     "操作数类型不是算术类型": 2
+    },
+    "de_morgan": {},
+    "eq_zero": {},
+    "commute": {
+     "操作数类型不是算术类型": 1
+    },
+    "opaque": {}
+   },
+   "rolled_back": {
+    "relation_flip": 0,
+    "de_morgan": 0,
+    "eq_zero": 0,
+    "commute": 0,
+    "opaque": 0
+   },
+   "overlap_dropped": 0,
+   "files_total": 4,
+   "files_changed": 3,
+   "files_skipped": {},
+   "files": {
+    "re.c": {
+     "applied": {
+      "eq_zero": 4,
+      "commute": 2,
+      "opaque": 18
+     }
+    },
+    "tests/test1.c": {
+     "applied": {
+      "relation_flip": 1,
+      "eq_zero": 1,
+      "opaque": 1
+     }
+    },
+    "tests/test_compile.c": {
+     "applied": {
+      "opaque": 1
+     }
+    }
+   },
+   "seed": 20261027,
+   "ratio": 0.5,
+   "kinds": [
+    "relation_flip",
+    "de_morgan",
+    "eq_zero",
+    "commute",
+    "opaque"
+   ],
+   "functions": 20,
+   "opaque_ratio": 1.0
+  },
+  "targets_not_renamed": [],
+  "attempts": [
+   {
+    "strict_stringify": false,
+    "ok": true,
+    "build_rc": 0,
+    "missing": 0
+   }
+  ]
+ },
+ "verify": {
+  "ok": true,
+  "build_rc": 0,
+  "stdout_tail": "76/76 tests succeeded.\n\n\n\n",
+  "relocated": 8,
+  "missing": [],
+  "tests_passed": true,
+  "timed_out": false,
+  "duration_s": 0.5154609690071084,
+  "n_targets": 8
+ },
+ "oracle_gate": {
+  "checked": 8,
+  "passed": 8,
+  "failed": [],
+  "copy_invalid": false,
+  "checked_ids": [
+   "tiny-regex-c:re.c:matchcharclass",
+   "tiny-regex-c:re.c:matchmetachar",
+   "tiny-regex-c:re.c:matchone",
+   "tiny-regex-c:re.c:matchpattern",
+   "tiny-regex-c:re.c:matchplus",
+   "tiny-regex-c:re.c:matchquestion",
+   "tiny-regex-c:re.c:matchstar",
+   "tiny-regex-c:re.c:re_matchp"
+  ],
+  "passed_ids": [
+   "tiny-regex-c:re.c:matchcharclass",
+   "tiny-regex-c:re.c:matchmetachar",
+   "tiny-regex-c:re.c:matchone",
+   "tiny-regex-c:re.c:matchpattern",
+   "tiny-regex-c:re.c:matchplus",
+   "tiny-regex-c:re.c:matchquestion",
+   "tiny-regex-c:re.c:matchstar",
+   "tiny-regex-c:re.c:re_matchp"
+  ],
+  "inputs": {
+   "obf": "a1994275c5802dd0",
+   "tree": "b92dc4169fe53dc9",
+   "targets": "82de2918730e3f02",
+   "version": 2,
+   "code": "6ec45e679e436985",
+   "env": "f66539fef467dd81"
+  },
+  "input_hash": "a11e8e51dabac5c7",
+  "created": "2026-10-27T17:29:20+00:00",
+  "sandbox": {
+   "image": "gcc:13",
+   "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",
+   "cpus": 1.0,
+   "memory": "1g",
+   "pids": 256,
+   "timeout_s": 120
+  }
+ }
+}

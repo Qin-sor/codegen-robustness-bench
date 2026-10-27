@@ -1,0 +1,15 @@
+{
+  "name": "mini",
+  "url": "",
+  "commit": "",
+  "license": "MIT",
+  "project_files": ["mini.h", "calc.c", "util.c", "test_main.c"],
+  "target_files": ["calc.c", "util.c"],
+  "cflags": ["-std=c99", "-I."],
+  "build_cmd": "make test",
+  "test_cmd": null,
+  "pass_criteria": {"exit_code": 0},
+  "coverage": {"env": {"CFLAGS": "--coverage -O0", "LDFLAGS": "--coverage"}},
+  "timeout_s": 60,
+  "notes": "自写的小型 C 项目，供 extract / 混淆 / e2e 自测使用；make test 退出码 0 表示通过。"
+}

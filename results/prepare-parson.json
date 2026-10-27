@@ -1,0 +1,28 @@
+{
+ "schema_version": 1,
+ "corpus": "parson",
+ "commit": "ec53fb6528b45811df9db0db22cab96a94a96a11",
+ "created": "2026-10-27T17:15:53+00:00",
+ "inputs": {
+  "spec": "7ddc418baff5c18b",
+  "tree": "2ad80ff6bc5765ce",
+  "version": 2,
+  "code": "df5f6949d76467ab",
+  "env": "fe40f23a8559c0bb"
+ },
+ "input_hash": "262068ef3bb465bd",
+ "ok": true,
+ "rc": 0,
+ "timed_out": false,
+ "sandbox": {
+  "image": "gcc:13",
+  "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",
+  "cpus": 1.0,
+  "memory": "1g",
+  "pids": 256,
+  "timeout_s": 120
+ },
+ "duration_s": 0.82,
+ "stdout_tail": "################################################################################\nRunning parson tests\nTesting failing allocations: OK (tested 536 failing allocations)\nTests failed: 0\nTests passed: 362\n################################################################################\n################################################################################\nRunning parson tests\nTesting failing allocations: OK (tested 536 failing allocations)\nTests failed: 0\nTests passed: 362\n################################################################################\n",
+ "stderr_tail": ""
+}

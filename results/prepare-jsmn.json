@@ -1,0 +1,28 @@
+{
+ "schema_version": 1,
+ "corpus": "jsmn",
+ "commit": "25647e692c7906b96ffd2b05ca54c097948e879c",
+ "created": "2026-10-27T17:15:50+00:00",
+ "inputs": {
+  "spec": "bd6d15bfac089cfd",
+  "tree": "9449be73025fd3d9",
+  "version": 2,
+  "code": "df5f6949d76467ab",
+  "env": "fe40f23a8559c0bb"
+ },
+ "input_hash": "d6e7122e2de5f59a",
+ "ok": true,
+ "rc": 0,
+ "timed_out": false,
+ "sandbox": {
+  "image": "gcc:13",
+  "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",
+  "cpus": 1.0,
+  "memory": "1g",
+  "pids": 256,
+  "timeout_s": 120
+ },
+ "duration_s": 0.57,
+ "stdout_tail": "\nPASSED: 16\nFAILED: 0\n\nPASSED: 16\nFAILED: 0\n\nPASSED: 16\nFAILED: 0\n\nPASSED: 16\nFAILED: 0\n",
+ "stderr_tail": ""
+}

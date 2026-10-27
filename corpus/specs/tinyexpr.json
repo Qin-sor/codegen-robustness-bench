@@ -1,0 +1,44 @@
+{
+  "name": "tinyexpr",
+  "url": "https://github.com/codeplea/tinyexpr.git",
+  "commit": "ba2e32bbcc2d1e644a7e132d24c2f542821cabe0",
+  "license": "Zlib",
+  "project_files": [
+    "tinyexpr.c",
+    "tinyexpr.h",
+    "smoke.c",
+    "minctest.h"
+  ],
+  "target_files": [
+    "tinyexpr.c"
+  ],
+  "cflags": [
+    "-std=c99"
+  ],
+  "build_cmd": "set -e\ngcc -std=c99 -Wall -Wshadow -O2 $CFLAGS -o smoke smoke.c tinyexpr.c $LDFLAGS -lm\n./smoke\ngcc -std=c99 -Wall -Wshadow -O2 -DTE_POW_FROM_RIGHT -DTE_NAT_LOG $CFLAGS -o smoke_pr smoke.c tinyexpr.c $LDFLAGS -lm\n./smoke_pr",
+  "test_cmd": null,
+  "pass_criteria": {
+    "exit_code": 0,
+    "stdout_regex": "ALL TESTS PASSED",
+    "stdout_not_regex": "SOME TESTS FAILED"
+  },
+  "coverage": {
+    "env": {
+      "CFLAGS": "--coverage -O0",
+      "LDFLAGS": "--coverage"
+    }
+  },
+  "timeout_s": 30,
+  "notes": "显式 gcc 编译 smoke.c + tinyexpr.c，默认配置和 -DTE_POW_FROM_RIGHT -DTE_NAT_LOG 各跑一次（对应 Makefile 的 smoke、smoke_pr；第二次不必再手动 ./smoke）。默认配置 10118 条断言，第二个配置 10128 条。源码用了 // 注释和 ULLONG_MAX，所以 -std=c99，不能更窄。smoke 失败时 return lfails != 0，另用输出里的 ALL TESTS PASSED 兜底。minctest.h 是单独发布的第三方微型测试库，列入 vendored。 allow_words 放行 expr：表达式，库的领域词。",
+  "vendored": [
+    "minctest.h"
+  ],
+  "keep_names": [
+    "TE_POW_FROM_RIGHT",
+    "TE_NAT_LOG"
+  ],
+  "allow_words": [
+    "expr"
+  ],
+  "exclude_targets": []
+}

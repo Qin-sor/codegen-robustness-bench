@@ -1,0 +1,95 @@
+{
+ "corpus": "sds",
+ "seed": 20261027,
+ "filter": {
+  "min_statements": 3,
+  "min_lines": 4,
+  "max_lines": 120,
+  "max_per_corpus": 50,
+  "require_exec": true,
+  "require_stub_kill": true
+ },
+ "extracted": 44,
+ "candidates": 16,
+ "selected": 16,
+ "excluded": {
+  "few_statements": 17,
+  "spec_excluded": 1,
+  "not_executed": 10
+ },
+ "schema_version": 1,
+ "created": "2026-10-27T17:21:02+00:00",
+ "inputs": {
+  "spec": "391555a48c541fb4",
+  "tree": "0c737cf14e19e8a2",
+  "seed": 20261027,
+  "filter": {
+   "min_statements": 3,
+   "min_lines": 4,
+   "max_lines": 120,
+   "max_per_corpus": 50,
+   "require_exec": true,
+   "require_stub_kill": true
+  },
+  "scan_all": true,
+  "coverage": "4d80010fe921432e",
+  "version": 2,
+  "code": "1c7ade32084bd16e",
+  "env": "fe40f23a8559c0bb"
+ },
+ "input_hash": "60e7e8aeb65c8c99",
+ "scan_all": true,
+ "excluded_ids": {
+  "few_statements": [
+   "sds:sds.c:sdsempty",
+   "sds:sds.c:sdsnew",
+   "sds:sds.c:sdsdup",
+   "sds:sds.c:sdsfree",
+   "sds:sds.c:sdsupdatelen",
+   "sds:sds.c:sdsclear",
+   "sds:sds.c:sdsAllocSize",
+   "sds:sds.c:sdsAllocPtr",
+   "sds:sds.c:sdscat",
+   "sds:sds.c:sdscatsds",
+   "sds:sds.c:sdscpy",
+   "sds:sds.c:sdstolower",
+   "sds:sds.c:sdstoupper",
+   "sds:sds.c:is_hex_digit",
+   "sds:sds.c:sds_malloc",
+   "sds:sds.c:sds_realloc",
+   "sds:sds.c:sds_free"
+  ],
+  "spec_excluded": [
+   "sds:sds.c:sdsTest"
+  ],
+  "not_executed": [
+   "sds:sds.c:sdsRemoveFreeSpace",
+   "sds:sds.c:sdsgrowzero",
+   "sds:sds.c:sdsfromlonglong",
+   "sds:sds.c:sdssplitlen",
+   "sds:sds.c:sdsfreesplitres",
+   "sds:sds.c:hex_digit_to_int",
+   "sds:sds.c:sdssplitargs",
+   "sds:sds.c:sdsmapchars",
+   "sds:sds.c:sdsjoin",
+   "sds:sds.c:sdsjoinsds"
+  ]
+ },
+ "stub_kill_modes": {
+  "runtime_crash": 9,
+  "test_fail": 7
+ },
+ "stub_checked": 16,
+ "stub_verdicts": {
+  "killed": 16
+ },
+ "unverified": false,
+ "sandbox": {
+  "image": "gcc:13",
+  "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",
+  "cpus": 1.0,
+  "memory": "1g",
+  "pids": 256,
+  "timeout_s": 120
+ }
+}

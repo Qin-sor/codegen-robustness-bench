@@ -1,0 +1,274 @@
+{
+ "schema_version": 1,
+ "corpus": "jsmn",
+ "level": "L2",
+ "seed": 20261027,
+ "created": "2026-10-27T17:22:21+00:00",
+ "inputs": {
+  "spec": "bd6d15bfac089cfd",
+  "pristine": "9449be73025fd3d9",
+  "level": "L2",
+  "seed": 20261027,
+  "strict": null,
+  "targets": "77c075b32583576b",
+  "version": 1,
+  "code": "cf3da71fe7c9228e",
+  "clang": {
+   "python_binding": "14.0",
+   "library": "libclang.so.1",
+   "builtin_include": "497c403da4c32f51"
+  },
+  "env": "fe40f23a8559c0bb"
+ },
+ "input_hash": "f0daf5f4c7641b3d",
+ "strict_stringify": false,
+ "tree_hash": "0bc3ce3c335972cc",
+ "ok": true,
+ "problems": [],
+ "elapsed_s": 1.12,
+ "rename_map": {
+  "JSMN_API": "M_3",
+  "JSMN_H": "M_5",
+  "check": "M_4",
+  "done": "M_2",
+  "fail": "M_1",
+  "jsmn_alloc_token": "f_15",
+  "jsmn_fill_token": "f_13",
+  "jsmn_init": "f_16",
+  "jsmn_parse": "f_25",
+  "jsmn_parse_primitive": "f_5",
+  "jsmn_parse_string": "f_8",
+  "parse": "f_21",
+  "test": "f_10",
+  "test_array": "f_17",
+  "test_array_nomem": "f_24",
+  "test_count": "f_19",
+  "test_empty": "f_3",
+  "test_input_length": "f_11",
+  "test_issue_22": "f_6",
+  "test_issue_27": "f_20",
+  "test_nonstrict": "f_7",
+  "test_object": "f_1",
+  "test_object_key": "f_9",
+  "test_partial_array": "f_26",
+  "test_partial_string": "f_22",
+  "test_primitive": "f_2",
+  "test_string": "f_12",
+  "test_unmatched_brackets": "f_18",
+  "test_unquoted_keys": "f_14",
+  "tokeq": "f_4",
+  "vtokeq": "f_23",
+  "end": "m_4",
+  "pos": "m_7",
+  "size": "m_6",
+  "start": "m_2",
+  "toknext": "m_3",
+  "toksuper": "m_5",
+  "type": "m_1",
+  "jsmn_parser": "t_1",
+  "jsmnerr": "t_3",
+  "jsmntok": "t_5",
+  "jsmntok_t": "t_4",
+  "jsmntype_t": "t_2",
+  "JSMN_ARRAY": "v_11",
+  "JSMN_ERROR_INVAL": "v_18",
+  "JSMN_ERROR_NOMEM": "v_28",
+  "JSMN_ERROR_PART": "v_4",
+  "JSMN_OBJECT": "v_21",
+  "JSMN_PRIMITIVE": "v_2",
+  "JSMN_STRING": "v_7",
+  "JSMN_UNDEFINED": "v_23",
+  "ap": "v_5",
+  "args": "v_15",
+  "c": "v_9",
+  "count": "v_12",
+  "found": "v_17",
+  "func": "v_26",
+  "i": "v_13",
+  "js": "v_20",
+  "len": "v_27",
+  "name": "v_30",
+  "num_tokens": "v_16",
+  "numtok": "v_10",
+  "ok": "v_32",
+  "p": "v_6",
+  "parser": "v_33",
+  "r": "v_3",
+  "s": "v_19",
+  "status": "v_1",
+  "t": "v_35",
+  "test_failed": "v_34",
+  "test_passed": "v_8",
+  "tok": "v_25",
+  "token": "v_29",
+  "tokens": "v_24",
+  "toklarge": "v_31",
+  "toksmall": "v_22",
+  "value": "v_14"
+ },
+ "stats": {
+  "level": "L2",
+  "seed": 20261027,
+  "symbols": {
+   "files_total": 4,
+   "files_vendored": 0,
+   "configs": 2,
+   "entities_declared": 81,
+   "entities_renamed": 78,
+   "entities_excluded": 3,
+   "dropped_unseen": 0,
+   "renamed_by_kind": {
+    "macro": 5,
+    "func": 26,
+    "type": 5,
+    "field": 7,
+    "var": 35
+   },
+   "excluded_by_reason": {
+    "entry": 1,
+    "reserved_prefix": 2
+   },
+   "excluded_stringify": [],
+   "stringified_names_renamed": [],
+   "func_name_uses": 0,
+   "strict_stringify": false,
+   "exclusion_set_size": 1101,
+   "external_names": 926,
+   "parse_error_files": {
+    "test/testutil.h": 16
+   },
+   "level": "L1",
+   "seed": 20261027,
+   "files_changed": 4,
+   "tokens_replaced": 1249,
+   "renamed_by_prefix": {
+    "M": 5,
+    "f": 26,
+    "m": 7,
+    "t": 5,
+    "v": 35
+   },
+   "baseline_errors": 0,
+   "reparse_errors": 0
+  },
+  "structure": {
+   "for_to_while": 5,
+   "if_else_swap": 1,
+   "compound_assign": 0,
+   "ternary_return": 0,
+   "decl_split": 1,
+   "total": 7,
+   "candidates": {
+    "for_to_while": 11,
+    "if_else_swap": 4,
+    "compound_assign": 0,
+    "ternary_return": 0,
+    "decl_split": 2
+   },
+   "skipped": {
+    "for_to_while": {},
+    "if_else_swap": {},
+    "compound_assign": {},
+    "ternary_return": {},
+    "decl_split": {}
+   },
+   "rolled_back": {
+    "for_to_while": 0,
+    "if_else_swap": 0,
+    "compound_assign": 0,
+    "ternary_return": 0,
+    "decl_split": 0
+   },
+   "overlap_dropped": 0,
+   "files_total": 4,
+   "files_changed": 3,
+   "files_skipped": {},
+   "files": {
+    "jsmn.h": {
+     "applied": {
+      "for_to_while": 4
+     }
+    },
+    "test/tests.c": {
+     "applied": {
+      "for_to_while": 1
+     }
+    },
+    "test/testutil.h": {
+     "applied": {
+      "if_else_swap": 1,
+      "decl_split": 1
+     },
+     "host": "tests.c"
+    }
+   },
+   "seed": 20261027,
+   "ratio": 0.5,
+   "kinds": [
+    "for_to_while",
+    "if_else_swap",
+    "compound_assign",
+    "ternary_return",
+    "decl_split"
+   ]
+  },
+  "targets_not_renamed": [],
+  "attempts": [
+   {
+    "strict_stringify": false,
+    "ok": true,
+    "build_rc": 0,
+    "missing": 0
+   }
+  ]
+ },
+ "verify": {
+  "ok": true,
+  "build_rc": 0,
+  "stdout_tail": "\nPASSED: 16\nFAILED: 0\n\nPASSED: 16\nFAILED: 0\n\nPASSED: 16\nFAILED: 0\n\nPASSED: 16\nFAILED: 0\n",
+  "relocated": 5,
+  "missing": [],
+  "tests_passed": true,
+  "timed_out": false,
+  "duration_s": 0.5655707120022271,
+  "n_targets": 5
+ },
+ "oracle_gate": {
+  "checked": 5,
+  "passed": 5,
+  "failed": [],
+  "copy_invalid": false,
+  "checked_ids": [
+   "jsmn:jsmn.h:jsmn_alloc_token",
+   "jsmn:jsmn.h:jsmn_fill_token",
+   "jsmn:jsmn.h:jsmn_init",
+   "jsmn:jsmn.h:jsmn_parse_primitive",
+   "jsmn:jsmn.h:jsmn_parse_string"
+  ],
+  "passed_ids": [
+   "jsmn:jsmn.h:jsmn_alloc_token",
+   "jsmn:jsmn.h:jsmn_fill_token",
+   "jsmn:jsmn.h:jsmn_init",
+   "jsmn:jsmn.h:jsmn_parse_primitive",
+   "jsmn:jsmn.h:jsmn_parse_string"
+  ],
+  "inputs": {
+   "obf": "f0daf5f4c7641b3d",
+   "tree": "0bc3ce3c335972cc",
+   "targets": "77c075b32583576b",
+   "version": 2,
+   "code": "6ec45e679e436985",
+   "env": "f66539fef467dd81"
+  },
+  "input_hash": "2304550283458795",
+  "created": "2026-10-27T17:26:03+00:00",
+  "sandbox": {
+   "image": "gcc:13",
+   "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",
+   "cpus": 1.0,
+   "memory": "1g",
+   "pids": 256,
+   "timeout_s": 120
+  }
+ }
+}

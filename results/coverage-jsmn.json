@@ -1,0 +1,27 @@
+{
+ "schema_version": 1,
+ "corpus": "jsmn",
+ "created": "2026-10-27T17:16:03+00:00",
+ "inputs": {
+  "spec": "bd6d15bfac089cfd",
+  "tree": "9449be73025fd3d9",
+  "version": 2,
+  "code": "8e27d2d0c47d9faf",
+  "env": "fe40f23a8559c0bb"
+ },
+ "input_hash": "0e52c3dbb5b41c5b",
+ "ok": true,
+ "problems": [],
+ "n_gcda": 4,
+ "n_gcda_failed": 0,
+ "n_functions": 6,
+ "n_executed": 6,
+ "counts": {
+  "jsmn.h:jsmn_alloc_token": 944,
+  "jsmn.h:jsmn_fill_token": 638,
+  "jsmn.h:jsmn_init": 236,
+  "jsmn.h:jsmn_parse": 430,
+  "jsmn.h:jsmn_parse_primitive": 320,
+  "jsmn.h:jsmn_parse_string": 490
+ }
+}

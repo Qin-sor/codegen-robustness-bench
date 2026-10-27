@@ -1,0 +1,87 @@
+{
+ "schema_version": 1,
+ "corpus": "inih",
+ "level": "L0",
+ "seed": 20261027,
+ "created": "2026-10-27T17:22:14+00:00",
+ "inputs": {
+  "spec": "5fb74d3c865c3f49",
+  "pristine": "939c2e457d3d93cd",
+  "level": "L0",
+  "seed": 20261027,
+  "strict": null,
+  "targets": "b951c9b07f2c9f4a",
+  "version": 1,
+  "code": "cf3da71fe7c9228e",
+  "clang": null,
+  "env": "fe40f23a8559c0bb"
+ },
+ "input_hash": "740ab4a2b871b0ed",
+ "strict_stringify": false,
+ "tree_hash": "939c2e457d3d93cd",
+ "ok": true,
+ "problems": [],
+ "elapsed_s": 1.11,
+ "rename_map": {},
+ "stats": {
+  "level": "L0",
+  "seed": 20261027,
+  "attempts": [
+   {
+    "strict_stringify": null,
+    "ok": true,
+    "build_rc": 0,
+    "missing": 0
+   }
+  ]
+ },
+ "verify": {
+  "ok": true,
+  "build_rc": 0,
+  "stdout_tail": "",
+  "relocated": 5,
+  "missing": [],
+  "tests_passed": true,
+  "timed_out": false,
+  "duration_s": 1.0671535180008505,
+  "n_targets": 5
+ },
+ "oracle_gate": {
+  "checked": 5,
+  "passed": 5,
+  "failed": [],
+  "copy_invalid": false,
+  "checked_ids": [
+   "inih:ini.c:ini_find_chars_or_comment",
+   "inih:ini.c:ini_parse",
+   "inih:ini.c:ini_parse_string_length",
+   "inih:ini.c:ini_reader_string",
+   "inih:ini.c:ini_strncpy0"
+  ],
+  "passed_ids": [
+   "inih:ini.c:ini_find_chars_or_comment",
+   "inih:ini.c:ini_parse",
+   "inih:ini.c:ini_parse_string_length",
+   "inih:ini.c:ini_reader_string",
+   "inih:ini.c:ini_strncpy0"
+  ],
+  "inputs": {
+   "obf": "740ab4a2b871b0ed",
+   "tree": "939c2e457d3d93cd",
+   "targets": "b951c9b07f2c9f4a",
+   "version": 2,
+   "code": "6ec45e679e436985",
+   "env": "f66539fef467dd81"
+  },
+  "input_hash": "39c8bb33adad9542",
+  "created": "2026-10-27T17:25:51+00:00",
+  "sandbox": {
+   "image": "gcc:13",
+   "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",
+   "cpus": 1.0,
+   "memory": "1g",
+   "pids": 256,
+   "timeout_s": 120
+  }
+ }
+}

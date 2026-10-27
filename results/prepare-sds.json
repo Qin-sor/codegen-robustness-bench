@@ -1,0 +1,28 @@
+{
+ "schema_version": 1,
+ "corpus": "sds",
+ "commit": "5347739b1581fcba74fd5cab1fc21d2aef317d71",
+ "created": "2026-10-27T17:15:54+00:00",
+ "inputs": {
+  "spec": "391555a48c541fb4",
+  "tree": "0c737cf14e19e8a2",
+  "version": 2,
+  "code": "df5f6949d76467ab",
+  "env": "fe40f23a8559c0bb"
+ },
+ "input_hash": "7cb0e4841b5470d7",
+ "ok": true,
+ "rc": 0,
+ "timed_out": false,
+ "sandbox": {
+  "image": "gcc:13",
+  "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",
+  "cpus": 1.0,
+  "memory": "1g",
+  "pids": 256,
+  "timeout_s": 120
+ },
+ "duration_s": 0.72,
+ "stdout_tail": "PASSED\n9 - sdscatfmt() seems working in the base case: PASSED\n[--Hello Hi! World -9223372036854775808,9223372036854775807--]\n10 - sdscatfmt() seems working with unsigned numbers: PASSED\n11 - sdstrim() works when all chars match: PASSED\n12 - sdstrim() works when a single char remains: PASSED\n13 - sdstrim() correctly trims characters: PASSED\n14 - sdsrange(...,1,1): PASSED\n15 - sdsrange(...,1,-1): PASSED\n16 - sdsrange(...,-2,-1): PASSED\n17 - sdsrange(...,2,1): PASSED\n18 - sdsrange(...,1,100): PASSED\n19 - sdsrange(...,100,100): PASSED\n20 - sdscmp(foo,foa): PASSED\n21 - sdscmp(bar,bar): PASSED\n22 - sdscmp(bar,bar): PASSED\n23 - sdscatrepr(...data...): PASSED\n24 - sdsnew() free/len buffers: PASSED\n25 - sdsMakeRoomFor() len: PASSED\n26 - sdsMakeRoomFor() free: PASSED\n27 - sdsMakeRoomFor() len: PASSED\n28 - sdsMakeRoomFor() free: PASSED\n29 - sdsMakeRoomFor() len: PASSED\n30 - sdsMakeRoomFor() free: PASSED\n31 - sdsMakeRoomFor() len: PASSED\n32 - sdsMakeRoomFor() free: PASSED\n33 - sdsMakeRoomFor() len: PASSED\n34 - sdsMakeRoomFor() free: PASSED\n35 - sdsMakeRoomFor() len: PASSED\n36 - sdsMakeRoomFor() free: PASSED\n37 - sdsMakeRoomFor() len: PASSED\n38 - sdsMakeRoomFor() free: PASSED\n39 - sdsMakeRoomFor() len: PASSED\n40 - sdsMakeRoomFor() free: PASSED\n41 - sdsMakeRoomFor() len: PASSED\n42 - sdsMakeRoomFor() free: PASSED\n43 - sdsMakeRoomFor() len: PASSED\n44 - sdsMakeRoomFor() free: PASSED\n45 - sdsMakeRoomFor() content: PASSED\n46 - sdsMakeRoomFor() final length: PASSED\n46 tests, 46 passed, 0 failed\n",
+ "stderr_tail": ""
+}

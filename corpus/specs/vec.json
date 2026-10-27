@@ -1,0 +1,37 @@
+{
+  "name": "vec",
+  "url": "https://github.com/rxi/vec.git",
+  "commit": "20e84224ceb29a8f76d2b9d0ccfc547258a14ec5",
+  "license": "MIT",
+  "project_files": [
+    "src/vec.c",
+    "src/vec.h",
+    "test/test_vec.c"
+  ],
+  "target_files": [
+    "src/vec.c"
+  ],
+  "cflags": [
+    "-std=c99",
+    "-Isrc"
+  ],
+  "build_cmd": "set -e\ngcc -std=c99 -O0 -Wall -Wextra -Wno-unused-value -Isrc $CFLAGS -o test_vec.bin src/vec.c test/test_vec.c $LDFLAGS -lm\n./test_vec.bin",
+  "test_cmd": null,
+  "pass_criteria": {
+    "exit_code": 0,
+    "stdout_regex": "Results:\\s+\\d+ Total\\s+\\d+ Passed\\s+0 Failed",
+    "stdout_not_regex": "\\[FAIL\\]"
+  },
+  "coverage": {
+    "env": {
+      "CFLAGS": "--coverage -O0",
+      "LDFLAGS": "--coverage"
+    }
+  },
+  "timeout_s": 30,
+  "notes": "test/ 没有 Makefile，test/build_test.py 只是 gcc -Wall -Wextra -I../src ... 的 python 封装，这里直接写 gcc 命令。test_vec.c 的 main 无论成败都 return 0，失败只打印 [FAIL] 并计入末尾汇总，所以 pass_criteria 靠输出判定。-Wno-unused-value 压掉 vec.h 的 vec_push 宏在每处调用产生的无害警告（否则每次构建 stderr 多出约 22 KB 文本诊断或 30 KB JSON 诊断，占沙箱 64 KB 输出上限的一半，会挤掉真正的错误）。测试用到混合声明，至少 -std=c99。test_vec.c 用 #include \"vec.h\"，需要 -Isrc（相对项目根）。",
+  "vendored": [],
+  "keep_names": [],
+  "allow_words": [],
+  "exclude_targets": []
+}

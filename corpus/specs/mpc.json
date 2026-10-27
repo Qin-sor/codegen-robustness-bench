@@ -1,0 +1,46 @@
+{
+  "name": "mpc",
+  "url": "https://github.com/orangeduck/mpc.git",
+  "commit": "1049534fc56b1971345c7aaa792dea55d6f9b7bc",
+  "license": "BSD-2-Clause",
+  "project_files": [
+    "mpc.c",
+    "mpc.h",
+    "tests/*.c",
+    "tests/ptest.h"
+  ],
+  "target_files": [
+    "mpc.c"
+  ],
+  "cflags": [
+    "-std=c89"
+  ],
+  "build_cmd": "set -e\nmkdir -p build\ngcc -std=c89 -O2 -g -Wall $CFLAGS tests/*.c mpc.c -o build/test-file $LDFLAGS -lm\n./build/test-file",
+  "test_cmd": null,
+  "pass_criteria": {
+    "exit_code": 0,
+    "stdout_regex": "Failed +0 ",
+    "stdout_not_regex": "Failed!|Stopping Execution"
+  },
+  "coverage": {
+    "env": {
+      "CFLAGS": "--coverage -O0",
+      "LDFLAGS": "--coverage"
+    }
+  },
+  "timeout_s": 30,
+  "notes": "显式 gcc 把 tests/*.c 与 mpc.c 编成一个测试程序运行（Makefile 的 check 还会再编 static / dynamic 两个版本，内容重复，总耗时 5.6 s；这里约 2 s）。ptest 的信号处理函数在 SIGSEGV / SIGFPE / SIGILL 时打印 \"Stopping Execution.\" 然后 exit(0)，崩溃的退出码是 0，只能靠输出识别，所以 pass_criteria 里 stdout_not_regex 必须保留。tests/ptest.c、ptest.h 是第三方微型测试框架，列入 vendored。去掉 -Werror / -pedantic，-std=c89 即 -ansi。 allow_words 放行 expr / grammar / regex / ast / anchor：mpc 是解析器组合子库，这几个词是领域通用词（表达式、语法、正则、抽象语法树、锚点），描述里避不开；放行命中会如实记在描述记录里。",
+  "vendored": [
+    "tests/ptest.c",
+    "tests/ptest.h"
+  ],
+  "keep_names": [],
+  "allow_words": [
+    "expr",
+    "grammar",
+    "regex",
+    "ast",
+    "anchor"
+  ],
+  "exclude_targets": []
+}

@@ -1,0 +1,28 @@
+{
+ "schema_version": 1,
+ "corpus": "mpc",
+ "commit": "1049534fc56b1971345c7aaa792dea55d6f9b7bc",
+ "created": "2026-10-27T17:15:52+00:00",
+ "inputs": {
+  "spec": "6f9824593f924c67",
+  "tree": "21461faab07e877b",
+  "version": 2,
+  "code": "df5f6949d76467ab",
+  "env": "fe40f23a8559c0bb"
+ },
+ "input_hash": "9b17a160f0065145",
+ "ok": true,
+ "rc": 0,
+ "timed_out": false,
+ "sandbox": {
+  "image": "gcc:13",
+  "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",
+  "cpus": 1.0,
+  "memory": "1g",
+  "pids": 256,
+  "timeout_s": 120
+ },
+ "duration_s": 1.72,
+ "stdout_tail": "Basic ... \u001b[32mPassed!\n\u001b[39m    | Test Regex Range ... \u001b[32mPassed!\n\u001b[39m    | Test Regex String ... \u001b[32mPassed!\n\u001b[39m    | Test Regex Lisp Comment ... \u001b[32mPassed!\n\u001b[39m    | Test Regex Boundary ... \u001b[32mPassed!\n\u001b[39m    | Test Regex Newline ... \u001b[32mPassed!\n\u001b[39m    | Test Regex Multiline ... \u001b[32mPassed!\n\u001b[39m    | Test Regex Dotall ... \u001b[32mPassed!\n\u001b[39m\n\n  ===== Suite Grammar =====\n\n    | Test Grammar ... \u001b[32mPassed!\n\u001b[39m    | Test Language ... \u001b[32mPassed!\n\u001b[39m    | Test Language File ... \u001b[32mPassed!\n\u001b[39m    | Test Doge ... \u001b[32mPassed!\n\u001b[39m    | Test Partial ... \u001b[32mPassed!\n\u001b[39m    | Test QScript ... \u001b[32mPassed!\n\u001b[39m    | Test Missing Rule ... \u001b[32mPassed!\n\u001b[39m    | Test Regex Mode ... \u001b[32mPassed!\n\u001b[39m    | Test Digits File ... \u001b[32mPassed!\n\u001b[39m\n\n  ===== Suite Combinators =====\n\n    | Test Check ... \u001b[32mPassed!\n\u001b[39m    | Test Check With ... \u001b[32mPassed!\n\u001b[39m    | Test Check F ... \u001b[32mPassed!\n\u001b[39m    | Test Check With F ... \u001b[32mPassed!\n\u001b[39m\n  +---------------------------------------------------+\n  |                      Summary                      |\n  +---------++------------+-------------+-------------+\n  | Suites  ||\u001b[33m Total    4 \u001b[39m|\u001b[32m Passed    4 \u001b[39m|\u001b[31m Failed    0 \u001b[39m|\n  | Tests   ||\u001b[33m Total   30 \u001b[39m|\u001b[32m Passed   30 \u001b[39m|\u001b[31m Failed    0 \u001b[39m|\n  | Asserts ||\u001b[33m Total  142 \u001b[39m|\u001b[32m Passed  142 \u001b[39m|\u001b[31m Failed    0 \u001b[39m|\n  +---------++------------+-------------+-------------+\n\n      Total Running Time: 0.004s\n\n",
+ "stderr_tail": ""
+}

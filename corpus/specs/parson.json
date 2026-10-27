@@ -1,0 +1,40 @@
+{
+  "name": "parson",
+  "url": "https://github.com/kgabis/parson.git",
+  "commit": "ec53fb6528b45811df9db0db22cab96a94a96a11",
+  "license": "MIT",
+  "project_files": [
+    "parson.c",
+    "parson.h",
+    "tests.c"
+  ],
+  "target_files": [
+    "parson.c"
+  ],
+  "cflags": [
+    "-std=c89",
+    "-DTESTS_MAIN"
+  ],
+  "build_cmd": "set -e\ngcc -O0 -g -Wall -Wextra -std=c89 -DTESTS_MAIN $CFLAGS -o parson_test tests.c parson.c $LDFLAGS -lm\n./parson_test\ngcc -O0 -g -Wall -Wextra -std=c89 -DTESTS_MAIN -DPARSON_FORCE_HASH_COLLISIONS $CFLAGS -o parson_test_hash tests.c parson.c $LDFLAGS -lm\n./parson_test_hash",
+  "test_cmd": null,
+  "pass_criteria": {
+    "exit_code": 0,
+    "stdout_regex": "(?s)Tests failed: 0\\n.*Tests failed: 0\\n",
+    "stdout_not_regex": "- FAILED"
+  },
+  "coverage": {
+    "env": {
+      "CFLAGS": "--coverage -O0",
+      "LDFLAGS": "--coverage"
+    }
+  },
+  "timeout_s": 30,
+  "notes": "显式 gcc 编译 tests.c + parson.c：默认配置跑一次，再加 -DPARSON_FORCE_HASH_COLLISIONS 跑一次（对应 Makefile 的 test 与 test_hash_collisions；testcpp 需要 g++，不收）。tests.c 的 main 无论成败都 return 0，失败只体现在输出里（\"- FAILED\" 行和 \"Tests failed: N\"），所以 pass_criteria 用 stdout_regex / stdout_not_regex 兜底；两次运行的输出首尾相接，stdout_regex 要求出现两次 \"Tests failed: 0\"，免得第一次失败、第二次通过时被第二次的汇总行蒙混过关。测试按相对路径读 tests/*.txt，必须在项目根运行。去掉 -pedantic-errors，保留 -std=c89。",
+  "vendored": [],
+  "keep_names": [
+    "TESTS_MAIN",
+    "PARSON_FORCE_HASH_COLLISIONS"
+  ],
+  "allow_words": [],
+  "exclude_targets": []
+}

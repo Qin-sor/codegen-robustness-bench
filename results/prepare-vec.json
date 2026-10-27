@@ -1,0 +1,28 @@
+{
+ "schema_version": 1,
+ "corpus": "vec",
+ "commit": "20e84224ceb29a8f76d2b9d0ccfc547258a14ec5",
+ "created": "2026-10-27T17:15:56+00:00",
+ "inputs": {
+  "spec": "7e02ce4f57ddfca4",
+  "tree": "892b82047e4afa9d",
+  "version": 2,
+  "code": "df5f6949d76467ab",
+  "env": "fe40f23a8559c0bb"
+ },
+ "input_hash": "13f60c7fb360b67e",
+ "ok": true,
+ "rc": 0,
+ "timed_out": false,
+ "sandbox": {
+  "image": "gcc:13",
+  "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",
+  "cpus": 1.0,
+  "memory": "1g",
+  "pids": 256,
+  "timeout_s": 120
+ },
+ "duration_s": 0.36,
+ "stdout_tail": "== 200\n[PASS] test/test_vec.c:192: vec_reserve(&v, 300) == 0\n--- vec_compact\n[PASS] test/test_vec.c:203: v.length == v.capacity\n[PASS] test/test_vec.c:204: vec_compact(&v) == 0\n--- vec_pusharr\n[PASS] test/test_vec.c:215: v.data[0] == 1\n[PASS] test/test_vec.c:216: v.data[2] == 5\n[PASS] test/test_vec.c:217: v.data[6] == 9\n[PASS] test/test_vec.c:221: v.data[0] == 5\n--- vec_extend\n[PASS] test/test_vec.c:234: v.data[0] == 12 && v.data[1] == 34 && v.data[2]...\n[PASS] test/test_vec.c:236: v.length == 4\n--- vec_find\n[PASS] test/test_vec.c:247: i == 0\n[PASS] test/test_vec.c:249: i == 25\n[PASS] test/test_vec.c:251: i == 3\n[PASS] test/test_vec.c:253: i == -1\n--- vec_remove\n[PASS] test/test_vec.c:263: v.length == 26\n[PASS] test/test_vec.c:265: v.data[0] == 'a' && v.data[1] == 'b' && v.data[...\n[PASS] test/test_vec.c:267: v.length == 25\n--- vec_reverse\n[PASS] test/test_vec.c:279: v.length == 4\n[PASS] test/test_vec.c:280: v.data[0] == 'd' && v.data[1] == 'c' && v.data[...\n--- vec_foreach\n[PASS] test/test_vec.c:297: acc == (19 + 0) * (31 + 1) * (47 + 2)\n--- vec_foreach_rev\n[PASS] test/test_vec.c:313: acc == (19 + 2) * (31 + 1) * (47 + 0)\n--- vec_foreach_ptr\n[PASS] test/test_vec.c:329: acc == (19 + 0) * (31 + 1) * (47 + 2)\n--- vec_foreach_ptr_rev\n[PASS] test/test_vec.c:345: acc == (19 + 2) * (31 + 1) * (47 + 0)\n------------------------------------------------------------\n-- Results:    55 Total     55 Passed      0 Failed       --\n------------------------------------------------------------\n",
+ "stderr_tail": ""
+}

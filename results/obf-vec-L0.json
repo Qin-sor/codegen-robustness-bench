@@ -1,0 +1,89 @@
+{
+ "schema_version": 1,
+ "corpus": "vec",
+ "level": "L0",
+ "seed": 20261027,
+ "created": "2026-10-27T17:23:06+00:00",
+ "inputs": {
+  "spec": "7e02ce4f57ddfca4",
+  "pristine": "892b82047e4afa9d",
+  "level": "L0",
+  "seed": 20261027,
+  "strict": null,
+  "targets": "1029ff68ac81f3d9",
+  "version": 1,
+  "code": "cf3da71fe7c9228e",
+  "clang": null,
+  "env": "fe40f23a8559c0bb"
+ },
+ "input_hash": "a2a8966be50cc454",
+ "strict_stringify": false,
+ "tree_hash": "892b82047e4afa9d",
+ "ok": true,
+ "problems": [],
+ "elapsed_s": 0.44,
+ "rename_map": {},
+ "stats": {
+  "level": "L0",
+  "seed": 20261027,
+  "attempts": [
+   {
+    "strict_stringify": null,
+    "ok": true,
+    "build_rc": 0,
+    "missing": 0
+   }
+  ]
+ },
+ "verify": {
+  "ok": true,
+  "build_rc": 0,
+  "stdout_tail": ".data[2] == 'c'\n[PASS] test/test_vec.c:135: v.data[1] == 'a'\n--- vec_truncate\n[PASS] test/test_vec.c:145: v.length == 1000\n[PASS] test/test_vec.c:147: v.length == 900\n--- vec_clear\n[PASS] test/test_vec.c:157: v.length == 0\n--- vec_first\n[PASS] test/test_vec.c:166: vec_first(&v) == 0xf00d\n--- vec_last\n[PASS] test/test_vec.c:175: vec_last(&v) == 0xf00d\n--- vec_reserve\n[PASS] test/test_vec.c:183: v.capacity == 100\n[PASS] test/test_vec.c:185: v.capacity == 100\n[PASS] test/test_vec.c:191: v.capacity == 200\n[PASS] test/test_vec.c:192: vec_reserve(&v, 300) == 0\n--- vec_compact\n[PASS] test/test_vec.c:203: v.length == v.capacity\n[PASS] test/test_vec.c:204: vec_compact(&v) == 0\n--- vec_pusharr\n[PASS] test/test_vec.c:215: v.data[0] == 1\n[PASS] test/test_vec.c:216: v.data[2] == 5\n[PASS] test/test_vec.c:217: v.data[6] == 9\n[PASS] test/test_vec.c:221: v.data[0] == 5\n--- vec_extend\n[PASS] test/test_vec.c:234: v.data[0] == 12 && v.data[1] == 34 && v.data[2]...\n[PASS] test/test_vec.c:236: v.length == 4\n--- vec_find\n[PASS] test/test_vec.c:247: i == 0\n[PASS] test/test_vec.c:249: i == 25\n[PASS] test/test_vec.c:251: i == 3\n[PASS] test/test_vec.c:253: i == -1\n--- vec_remove\n[PASS] test/test_vec.c:263: v.length == 26\n[PASS] test/test_vec.c:265: v.data[0] == 'a' && v.data[1] == 'b' && v.data[...\n[PASS] test/test_vec.c:267: v.length == 25\n--- vec_reverse\n[PASS] test/test_vec.c:279: v.length == 4\n[PASS] test/test_vec.c:280: v.data[0] == 'd' && v.data[1] == 'c' && v.data[...\n--- vec_foreach\n[PASS] test/test_vec.c:297: acc == (19 + 0) * (31 + 1) * (47 + 2)\n--- vec_foreach_rev\n[PASS] test/test_vec.c:313: acc == (19 + 2) * (31 + 1) * (47 + 0)\n--- vec_foreach_ptr\n[PASS] test/test_vec.c:329: acc == (19 + 0) * (31 + 1) * (47 + 2)\n--- vec_foreach_ptr_rev\n[PASS] test/test_vec.c:345: acc == (19 + 2) * (31 + 1) * (47 + 0)\n------------------------------------------------------------\n-- Results:    55 Total     55 Passed      0 Failed       --\n------------------------------------------------------------\n",
+  "relocated": 6,
+  "missing": [],
+  "tests_passed": true,
+  "timed_out": false,
+  "duration_s": 0.41547464299947023,
+  "n_targets": 6
+ },
+ "oracle_gate": {
+  "checked": 6,
+  "passed": 6,
+  "failed": [],
+  "copy_invalid": false,
+  "checked_ids": [
+   "vec:src/vec.c:vec_compact_",
+   "vec:src/vec.c:vec_expand_",
+   "vec:src/vec.c:vec_insert_",
+   "vec:src/vec.c:vec_reserve_",
+   "vec:src/vec.c:vec_reserve_po2_",
+   "vec:src/vec.c:vec_swap_"
+  ],
+  "passed_ids": [
+   "vec:src/vec.c:vec_compact_",
+   "vec:src/vec.c:vec_expand_",
+   "vec:src/vec.c:vec_insert_",
+   "vec:src/vec.c:vec_reserve_",
+   "vec:src/vec.c:vec_reserve_po2_",
+   "vec:src/vec.c:vec_swap_"
+  ],
+  "inputs": {
+   "obf": "a2a8966be50cc454",
+   "tree": "892b82047e4afa9d",
+   "targets": "1029ff68ac81f3d9",
+   "version": 2,
+   "code": "6ec45e679e436985",
+   "env": "f66539fef467dd81"
+  },
+  "input_hash": "4df0ec51220757d0",
+  "created": "2026-10-27T17:29:55+00:00",
+  "sandbox": {
+   "image": "gcc:13",
+   "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",
+   "cpus": 1.0,
+   "memory": "1g",
+   "pids": 256,
+   "timeout_s": 120
+  }
+ }
+}

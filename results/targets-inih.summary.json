@@ -1,0 +1,69 @@
+{
+ "corpus": "inih",
+ "seed": 20261027,
+ "filter": {
+  "min_statements": 3,
+  "min_lines": 4,
+  "max_lines": 120,
+  "max_per_corpus": 50,
+  "require_exec": true,
+  "require_stub_kill": true
+ },
+ "extracted": 10,
+ "candidates": 5,
+ "selected": 5,
+ "excluded": {
+  "few_statements": 4,
+  "too_long": 1
+ },
+ "schema_version": 1,
+ "created": "2026-10-27T17:18:30+00:00",
+ "inputs": {
+  "spec": "5fb74d3c865c3f49",
+  "tree": "939c2e457d3d93cd",
+  "seed": 20261027,
+  "filter": {
+   "min_statements": 3,
+   "min_lines": 4,
+   "max_lines": 120,
+   "max_per_corpus": 50,
+   "require_exec": true,
+   "require_stub_kill": true
+  },
+  "scan_all": true,
+  "coverage": "c63822b8773939ad",
+  "version": 2,
+  "code": "1c7ade32084bd16e",
+  "env": "fe40f23a8559c0bb"
+ },
+ "input_hash": "6822863ec665608e",
+ "scan_all": true,
+ "excluded_ids": {
+  "few_statements": [
+   "inih:ini.c:ini_rstrip",
+   "inih:ini.c:ini_lskip",
+   "inih:ini.c:ini_parse_file",
+   "inih:ini.c:ini_parse_string"
+  ],
+  "too_long": [
+   "inih:ini.c:ini_parse_stream"
+  ]
+ },
+ "stub_kill_modes": {
+  "runtime_crash": 1,
+  "test_fail": 4
+ },
+ "stub_checked": 5,
+ "stub_verdicts": {
+  "killed": 5
+ },
+ "unverified": false,
+ "sandbox": {
+  "image": "gcc:13",
+  "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",
+  "cpus": 1.0,
+  "memory": "1g",
+  "pids": 256,
+  "timeout_s": 120
+ }
+}
