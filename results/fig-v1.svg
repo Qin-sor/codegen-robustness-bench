@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 734 362" width="734" height="362" role="img" aria-label="通过率随混淆级别的变化 · v1">
+<style>svg{--surface:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;--grid:#e1e0d9;--axis:#c3c2b7;--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#4a3aa7;--s8:#e34948}@media (prefers-color-scheme: dark){svg{--surface:#1a1a19;--ink:#ffffff;--ink2:#c3c2b7;--muted:#898781;--grid:#2c2c2a;--axis:#383835;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767}}text{font-family:system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;fill:var(--ink2)}.title{font-size:16px;font-weight:600;fill:var(--ink)}.sub{font-size:12px;fill:var(--muted)}.ptitle{font-size:13px;font-weight:600;fill:var(--ink)}.tick{font-size:11px;fill:var(--muted)}.val{font-size:11px;fill:var(--ink2)}.leg{font-size:12px;fill:var(--ink2)}.grid{stroke:var(--grid);stroke-width:1}.axis{stroke:var(--axis);stroke-width:1}</style>
+<rect width="734" height="362" fill="var(--surface)"/>
+<text x="16" y="26" class="title">通过率随混淆级别的变化 · v1</text>
+<text x="16" y="46" class="sub">点：该模型在该级别的样本合计比例；色带：Wilson 95% 置信区间；悬停看具体数值</text>
+<g transform="translate(16,54)">
+<text x="46" y="22" class="ptitle">测试通过率</text>
+<line x1="46" x2="296" y1="202.0" y2="202.0" class="axis"/>
+<text x="38" y="206.0" class="tick" text-anchor="end">0%</text>
+<line x1="46" x2="296" y1="163.0" y2="163.0" class="grid"/>
+<text x="38" y="167.0" class="tick" text-anchor="end">25%</text>
+<line x1="46" x2="296" y1="124.0" y2="124.0" class="grid"/>
+<text x="38" y="128.0" class="tick" text-anchor="end">50%</text>
+<line x1="46" x2="296" y1="85.0" y2="85.0" class="grid"/>
+<text x="38" y="89.0" class="tick" text-anchor="end">75%</text>
+<line x1="46" x2="296" y1="46.0" y2="46.0" class="grid"/>
+<text x="38" y="50.0" class="tick" text-anchor="end">100%</text>
+<text x="46.0" y="222" class="tick" text-anchor="middle">L0</text>
+<text x="129.3" y="222" class="tick" text-anchor="middle">L1</text>
+<text x="212.7" y="222" class="tick" text-anchor="middle">L2</text>
+<text x="296.0" y="222" class="tick" text-anchor="middle">L3</text>
+<polygon points="46.0,62.3 129.3,114.4 212.7,115.2 296.0,114.4 296.0,136.0 212.7,136.7 129.3,136.0 46.0,77.7" fill="var(--s1)" fill-opacity="0.10"/>
+<polyline points="46.0,69.0 129.3,125.2 212.7,126.0 296.0,125.2" fill="none" stroke="var(--s1)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="46.0" cy="69.0" r="4" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"/>
+<circle cx="46.0" cy="69.0" r="12" fill="transparent"><title>deepseek-flash · L0
+测试通过率 85.3%（168/197）
+95% 区间 [80%, 90%]</title></circle>
+<circle cx="129.3" cy="125.2" r="4" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"/>
+<circle cx="129.3" cy="125.2" r="12" fill="transparent"><title>deepseek-flash · L1
+测试通过率 49.2%（97/197）
+95% 区间 [42%, 56%]</title></circle>
+<circle cx="212.7" cy="126.0" r="4" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"/>
+<circle cx="212.7" cy="126.0" r="12" fill="transparent"><title>deepseek-flash · L2
+测试通过率 48.7%（96/197）
+95% 区间 [42%, 56%]</title></circle>
+<circle cx="296.0" cy="125.2" r="4" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"/>
+<circle cx="296.0" cy="125.2" r="12" fill="transparent"><title>deepseek-flash · L3
+测试通过率 49.2%（97/197）
+95% 区间 [42%, 56%]</title></circle>
+<polygon points="46.0,69.1 129.3,111.3 212.7,112.0 296.0,112.0 296.0,133.6 212.7,133.6 129.3,132.8 46.0,86.4" fill="var(--s2)" fill-opacity="0.10"/>
+<polyline points="46.0,76.9 129.3,122.0 212.7,122.8 296.0,122.8" fill="none" stroke="var(--s2)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="46.0" cy="76.9" r="4" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"/>
+<circle cx="46.0" cy="76.9" r="12" fill="transparent"><title>deepseek-v4-pro · L0
+测试通过率 80.2%（158/197）
+95% 区间 [74%, 85%]</title></circle>
+<circle cx="129.3" cy="122.0" r="4" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"/>
+<circle cx="129.3" cy="122.0" r="12" fill="transparent"><title>deepseek-v4-pro · L1
+测试通过率 51.3%（101/197）
+95% 区间 [44%, 58%]</title></circle>
+<circle cx="212.7" cy="122.8" r="4" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"/>
+<circle cx="212.7" cy="122.8" r="12" fill="transparent"><title>deepseek-v4-pro · L2
+测试通过率 50.8%（100/197）
+95% 区间 [44%, 58%]</title></circle>
+<circle cx="296.0" cy="122.8" r="4" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"/>
+<circle cx="296.0" cy="122.8" r="12" fill="transparent"><title>deepseek-v4-pro · L3
+测试通过率 50.8%（100/197）
+95% 区间 [44%, 58%]</title></circle>
+<text x="306.0" y="126.8" class="val">51%</text>
+</g>
+<g transform="translate(378,54)">
+<text x="46" y="22" class="ptitle">编译通过率</text>
+<line x1="46" x2="296" y1="202.0" y2="202.0" class="axis"/>
+<text x="38" y="206.0" class="tick" text-anchor="end">0%</text>
+<line x1="46" x2="296" y1="163.0" y2="163.0" class="grid"/>
+<text x="38" y="167.0" class="tick" text-anchor="end">25%</text>
+<line x1="46" x2="296" y1="124.0" y2="124.0" class="grid"/>
+<text x="38" y="128.0" class="tick" text-anchor="end">50%</text>
+<line x1="46" x2="296" y1="85.0" y2="85.0" class="grid"/>
+<text x="38" y="89.0" class="tick" text-anchor="end">75%</text>
+<line x1="46" x2="296" y1="46.0" y2="46.0" class="grid"/>
+<text x="38" y="50.0" class="tick" text-anchor="end">100%</text>
+<text x="46.0" y="222" class="tick" text-anchor="middle">L0</text>
+<text x="129.3" y="222" class="tick" text-anchor="middle">L1</text>
+<text x="212.7" y="222" class="tick" text-anchor="middle">L2</text>
+<text x="296.0" y="222" class="tick" text-anchor="middle">L3</text>
+<polygon points="46.0,46.1 129.3,49.8 212.7,49.8 296.0,49.8 296.0,59.2 212.7,59.2 129.3,59.2 46.0,50.4" fill="var(--s1)" fill-opacity="0.10"/>
+<polyline points="46.0,46.8 129.3,53.1 212.7,53.1 296.0,53.1" fill="none" stroke="var(--s1)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="46.0" cy="46.8" r="4" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"/>
+<circle cx="46.0" cy="46.8" r="12" fill="transparent"><title>deepseek-flash · L0
+编译通过率 99.5%（196/197）
+95% 区间 [97%, 100%]</title></circle>
+<circle cx="129.3" cy="53.1" r="4" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"/>
+<circle cx="129.3" cy="53.1" r="12" fill="transparent"><title>deepseek-flash · L1
+编译通过率 95.4%（188/197）
+95% 区间 [92%, 98%]</title></circle>
+<circle cx="212.7" cy="53.1" r="4" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"/>
+<circle cx="212.7" cy="53.1" r="12" fill="transparent"><title>deepseek-flash · L2
+编译通过率 95.4%（188/197）
+95% 区间 [92%, 98%]</title></circle>
+<circle cx="296.0" cy="53.1" r="4" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"/>
+<circle cx="296.0" cy="53.1" r="12" fill="transparent"><title>deepseek-flash · L3
+编译通过率 95.4%（188/197）
+95% 区间 [92%, 98%]</title></circle>
+<polygon points="46.0,46.1 129.3,48.2 212.7,47.7 296.0,47.7 296.0,55.1 212.7,55.1 129.3,56.1 46.0,50.4" fill="var(--s2)" fill-opacity="0.10"/>
+<polyline points="46.0,46.8 129.3,50.8 212.7,50.0 296.0,50.0" fill="none" stroke="var(--s2)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="46.0" cy="46.8" r="4" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"/>
+<circle cx="46.0" cy="46.8" r="12" fill="transparent"><title>deepseek-v4-pro · L0
+编译通过率 99.5%（196/197）
+95% 区间 [97%, 100%]</title></circle>
+<circle cx="129.3" cy="50.8" r="4" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"/>
+<circle cx="129.3" cy="50.8" r="12" fill="transparent"><title>deepseek-v4-pro · L1
+编译通过率 97.0%（191/197）
+95% 区间 [94%, 99%]</title></circle>
+<circle cx="212.7" cy="50.0" r="4" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"/>
+<circle cx="212.7" cy="50.0" r="12" fill="transparent"><title>deepseek-v4-pro · L2
+编译通过率 97.5%（192/197）
+95% 区间 [94%, 99%]</title></circle>
+<circle cx="296.0" cy="50.0" r="4" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"/>
+<circle cx="296.0" cy="50.0" r="12" fill="transparent"><title>deepseek-v4-pro · L3
+编译通过率 97.5%（192/197）
+95% 区间 [94%, 99%]</title></circle>
+<text x="306.0" y="54.0" class="val">97%</text>
+</g>
+<circle cx="21" cy="302" r="5" fill="var(--s1)"/>
+<text x="32" y="306" class="leg">deepseek-flash</text>
+<circle cx="156.43999999999997" cy="302" r="5" fill="var(--s2)"/>
+<text x="167.43999999999997" y="306" class="leg">deepseek-v4-pro</text>
+<text x="16" y="350" class="sub">级别：L0 原样　L1 符号　L2 +结构　L3 +语义</text>
+</svg>
