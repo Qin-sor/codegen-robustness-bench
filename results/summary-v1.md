@@ -1,6 +1,6 @@
 # 评测汇总 · v1
 
-- 样本记录 1576 条；模型 deepseek-flash, deepseek-v4-pro；语料 cjson, inih, jsmn, mpc, parson, sds, tiny-regex-c, tinyexpr, vec；混淆级别 L0, L1, L2, L3；不同目标 197 个。
+- 样本记录 2364 条；模型 deepseek-flash, deepseek-flash-thinking, deepseek-v4-pro；语料 cjson, inih, jsmn, mpc, parson, sds, tiny-regex-c, tinyexpr, vec；混淆级别 L0, L1, L2, L3；不同目标 197 个。
 - 编译通过率 = 构建与链接成功、至少进入项目测试的比例（stage ≥ test）；通过率 = 项目自带测试全部通过的比例，区间是 Wilson 95% 置信区间。
 - 混淆级别：L0 原样；L1 符号；L2 +结构；L3 +语义（高一级包含低一级的全部变换）。L0 通过率是上限参考：功能规格由 LLM 生成，规格歧义会抬高所有级别的失败率。
 
@@ -12,6 +12,10 @@
 | deepseek-flash | L1 | 197 | 完整 | 197 | 95.4% | 49.2% | [42%, 56%] | 55.8% | 0.701 | - | 203177 | 71581 | 0 |
 | deepseek-flash | L2 | 197 | 完整 | 197 | 95.4% | 48.7% | [42%, 56%] | 53.9% | 0.691 | 92.9% | 203177 | 72144 | 177 |
 | deepseek-flash | L3 | 197 | 完整 | 197 | 95.4% | 49.2% | [42%, 56%] | 53.8% | 0.643 | 94.9% | 203177 | 68936 | 188 |
+| deepseek-flash-thinking | L0 | 197 | 完整 | 197 | 98.5% | 90.4% | [85%, 94%] | 92.0% | 0.845 | - | 209466 | 706059 | 0 |
+| deepseek-flash-thinking | L1 | 197 | 完整 | 197 | 89.3% | 69.0% | [62%, 75%] | 72.4% | 0.802 | - | 208102 | 2084992 | 0 |
+| deepseek-flash-thinking | L2 | 197 | 完整 | 197 | 92.9% | 71.1% | [64%, 77%] | 72.9% | 0.792 | 91.4% | 208102 | 1984332 | 166 |
+| deepseek-flash-thinking | L3 | 197 | 完整 | 197 | 92.4% | 70.6% | [64%, 76%] | 73.5% | 0.731 | 94.4% | 208102 | 2016464 | 179 |
 | deepseek-v4-pro | L0 | 197 | 完整 | 197 | 99.5% | 80.2% | [74%, 85%] | 76.9% | 0.776 | - | 204344 | 44486 | 0 |
 | deepseek-v4-pro | L1 | 197 | 完整 | 197 | 97.0% | 51.3% | [44%, 58%] | 55.5% | 0.714 | - | 202980 | 56912 | 0 |
 | deepseek-v4-pro | L2 | 197 | 完整 | 197 | 97.5% | 50.8% | [44%, 58%] | 55.2% | 0.715 | 92.9% | 202980 | 49135 | 176 |
@@ -28,6 +32,9 @@
 | deepseek-flash | L1 | 197 | 85.3% | 49.2% | -36.0 | 42.3% | 73 | 2 | 0.000 | -4.1 | 0.825 | 0.701 | - |
 | deepseek-flash | L2 | 197 | 85.3% | 48.7% | -36.5 | 42.9% | 73 | 1 | 0.000 | -4.1 | 0.825 | 0.691 | 183/197 |
 | deepseek-flash | L3 | 197 | 85.3% | 49.2% | -36.0 | 42.3% | 73 | 2 | 0.000 | -4.1 | 0.825 | 0.643 | 187/197 |
+| deepseek-flash-thinking | L1 | 197 | 90.4% | 69.0% | -21.3 | 23.6% | 44 | 2 | 0.000 | -9.1 | 0.852 | 0.802 | - |
+| deepseek-flash-thinking | L2 | 197 | 90.4% | 71.1% | -19.3 | 21.3% | 41 | 3 | 0.000 | -5.6 | 0.852 | 0.792 | 180/197 |
+| deepseek-flash-thinking | L3 | 197 | 90.4% | 70.6% | -19.8 | 21.9% | 42 | 3 | 0.000 | -6.1 | 0.852 | 0.731 | 186/197 |
 | deepseek-v4-pro | L1 | 197 | 80.2% | 51.3% | -28.9 | 36.1% | 60 | 3 | 0.000 | -2.5 | 0.776 | 0.714 | - |
 | deepseek-v4-pro | L2 | 197 | 80.2% | 50.8% | -29.4 | 36.7% | 60 | 2 | 0.000 | -2.0 | 0.776 | 0.715 | 183/197 |
 | deepseek-v4-pro | L3 | 197 | 80.2% | 50.8% | -29.4 | 36.7% | 60 | 2 | 0.000 | -2.0 | 0.776 | 0.664 | 189/197 |
@@ -44,6 +51,10 @@
 | deepseek-flash | L1 | 197 | 49.2% | 0.0% | 0.0% | 2.5% | 1.5% | 0.0% | 0.5% | 0.0% | 13.2% | 0.5% | 32.5% |
 | deepseek-flash | L2 | 197 | 48.7% | 0.0% | 0.0% | 2.5% | 1.5% | 0.0% | 0.5% | 0.0% | 14.2% | 0.5% | 32.0% |
 | deepseek-flash | L3 | 197 | 49.2% | 0.0% | 0.0% | 2.0% | 1.5% | 0.5% | 0.5% | 0.0% | 12.7% | 0.5% | 33.0% |
+| deepseek-flash-thinking | L0 | 197 | 90.4% | 1.5% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 3.6% | 0.5% | 4.1% |
+| deepseek-flash-thinking | L1 | 197 | 69.0% | 10.7% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 6.1% | 0.0% | 14.2% |
+| deepseek-flash-thinking | L2 | 197 | 71.1% | 7.1% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 5.6% | 0.0% | 16.2% |
+| deepseek-flash-thinking | L3 | 197 | 70.6% | 7.6% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 5.6% | 0.0% | 16.2% |
 | deepseek-v4-pro | L0 | 197 | 80.2% | 0.0% | 0.0% | 0.0% | 0.5% | 0.0% | 0.0% | 0.0% | 7.6% | 0.0% | 11.7% |
 | deepseek-v4-pro | L1 | 197 | 51.3% | 0.0% | 0.0% | 0.5% | 1.5% | 0.5% | 0.5% | 0.0% | 11.7% | 1.0% | 33.0% |
 | deepseek-v4-pro | L2 | 197 | 50.8% | 0.0% | 0.0% | 0.0% | 1.5% | 1.0% | 0.0% | 0.0% | 12.2% | 1.0% | 33.5% |
@@ -59,6 +70,10 @@
 | deepseek-flash | L1 | 197 | 0.0% | 0.0% | 0.0% | 2.5% | 0.0% | 0 |
 | deepseek-flash | L2 | 197 | 0.0% | 0.0% | 0.0% | 2.5% | 0.0% | 0 |
 | deepseek-flash | L3 | 197 | 0.0% | 0.0% | 0.0% | 2.0% | 0.0% | 0 |
+| deepseek-flash-thinking | L0 | 197 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
+| deepseek-flash-thinking | L1 | 197 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
+| deepseek-flash-thinking | L2 | 197 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
+| deepseek-flash-thinking | L3 | 197 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
 | deepseek-v4-pro | L0 | 197 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
 | deepseek-v4-pro | L1 | 197 | 0.0% | 0.0% | 0.0% | 1.0% | 0.0% | 0 |
 | deepseek-v4-pro | L2 | 197 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
@@ -82,6 +97,18 @@
 | deepseek-flash | L3 | test_fail | 149 | 70 | 47.0% |
 | deepseek-flash | L3 | runtime_crash | 45 | 26 | 57.8% |
 | deepseek-flash | L3 | runtime_timeout | 3 | 1 | 33.3% |
+| deepseek-flash-thinking | L0 | test_fail | 149 | 135 | 90.6% |
+| deepseek-flash-thinking | L0 | runtime_crash | 45 | 42 | 93.3% |
+| deepseek-flash-thinking | L0 | runtime_timeout | 3 | 1 | 33.3% |
+| deepseek-flash-thinking | L1 | test_fail | 149 | 99 | 66.4% |
+| deepseek-flash-thinking | L1 | runtime_crash | 45 | 36 | 80.0% |
+| deepseek-flash-thinking | L1 | runtime_timeout | 3 | 1 | 33.3% |
+| deepseek-flash-thinking | L2 | test_fail | 149 | 103 | 69.1% |
+| deepseek-flash-thinking | L2 | runtime_crash | 45 | 36 | 80.0% |
+| deepseek-flash-thinking | L2 | runtime_timeout | 3 | 1 | 33.3% |
+| deepseek-flash-thinking | L3 | test_fail | 149 | 102 | 68.5% |
+| deepseek-flash-thinking | L3 | runtime_crash | 45 | 36 | 80.0% |
+| deepseek-flash-thinking | L3 | runtime_timeout | 3 | 1 | 33.3% |
 | deepseek-v4-pro | L0 | test_fail | 149 | 120 | 80.5% |
 | deepseek-v4-pro | L0 | runtime_crash | 45 | 37 | 82.2% |
 | deepseek-v4-pro | L0 | runtime_timeout | 3 | 1 | 33.3% |
@@ -137,6 +164,42 @@
 | deepseek-flash | tiny-regex-c | L3 | 8 | - | 100.0% | 12.5% | [2%, 47%] | -62.5 | 0.782 |
 | deepseek-flash | tinyexpr | L3 | 18 | - | 100.0% | 38.9% | [20%, 61%] | -22.2 | 0.656 |
 | deepseek-flash | vec | L3 | 6 | - | 100.0% | 100.0% | [61%, 100%] | +16.7 | 0.662 |
+| deepseek-flash-thinking | cjson | L0 | 45 | - | 100.0% | 95.6% | [85%, 99%] | - | 0.842 |
+| deepseek-flash-thinking | inih | L0 | 5 | - | 100.0% | 100.0% | [57%, 100%] | - | 0.954 |
+| deepseek-flash-thinking | jsmn | L0 | 5 | - | 100.0% | 100.0% | [57%, 100%] | - | 0.962 |
+| deepseek-flash-thinking | mpc | L0 | 49 | - | 93.9% | 83.7% | [71%, 91%] | - | 0.854 |
+| deepseek-flash-thinking | parson | L0 | 45 | - | 100.0% | 93.3% | [82%, 98%] | - | 0.850 |
+| deepseek-flash-thinking | sds | L0 | 16 | - | 100.0% | 100.0% | [81%, 100%] | - | 0.820 |
+| deepseek-flash-thinking | tiny-regex-c | L0 | 8 | - | 100.0% | 100.0% | [68%, 100%] | - | 0.852 |
+| deepseek-flash-thinking | tinyexpr | L0 | 18 | - | 100.0% | 72.2% | [49%, 88%] | - | 0.781 |
+| deepseek-flash-thinking | vec | L0 | 6 | - | 100.0% | 83.3% | [44%, 97%] | - | 0.834 |
+| deepseek-flash-thinking | cjson | L1 | 45 | - | 97.8% | 88.9% | [77%, 95%] | -6.7 | 0.792 |
+| deepseek-flash-thinking | inih | L1 | 5 | - | 100.0% | 80.0% | [38%, 96%] | -20.0 | 0.859 |
+| deepseek-flash-thinking | jsmn | L1 | 5 | - | 100.0% | 100.0% | [57%, 100%] | +0.0 | 0.968 |
+| deepseek-flash-thinking | mpc | L1 | 49 | - | 73.5% | 38.8% | [26%, 53%] | -44.9 | 0.789 |
+| deepseek-flash-thinking | parson | L1 | 45 | - | 97.8% | 77.8% | [64%, 87%] | -15.6 | 0.827 |
+| deepseek-flash-thinking | sds | L1 | 16 | - | 100.0% | 93.8% | [72%, 99%] | -6.2 | 0.757 |
+| deepseek-flash-thinking | tiny-regex-c | L1 | 8 | - | 100.0% | 50.0% | [22%, 78%] | -50.0 | 0.790 |
+| deepseek-flash-thinking | tinyexpr | L1 | 18 | - | 66.7% | 55.6% | [34%, 75%] | -16.7 | 0.747 |
+| deepseek-flash-thinking | vec | L1 | 6 | - | 100.0% | 66.7% | [30%, 90%] | -16.7 | 0.830 |
+| deepseek-flash-thinking | cjson | L2 | 45 | - | 100.0% | 91.1% | [79%, 96%] | -4.4 | 0.786 |
+| deepseek-flash-thinking | inih | L2 | 5 | - | 100.0% | 80.0% | [38%, 96%] | -20.0 | 0.869 |
+| deepseek-flash-thinking | jsmn | L2 | 5 | - | 100.0% | 80.0% | [38%, 96%] | -20.0 | 0.909 |
+| deepseek-flash-thinking | mpc | L2 | 49 | - | 83.7% | 42.9% | [30%, 57%] | -40.8 | 0.766 |
+| deepseek-flash-thinking | parson | L2 | 45 | - | 97.8% | 77.8% | [64%, 87%] | -15.6 | 0.825 |
+| deepseek-flash-thinking | sds | L2 | 16 | - | 100.0% | 93.8% | [72%, 99%] | -6.2 | 0.768 |
+| deepseek-flash-thinking | tiny-regex-c | L2 | 8 | - | 100.0% | 62.5% | [31%, 86%] | -37.5 | 0.762 |
+| deepseek-flash-thinking | tinyexpr | L2 | 18 | - | 72.2% | 61.1% | [39%, 80%] | -11.1 | 0.759 |
+| deepseek-flash-thinking | vec | L2 | 6 | - | 100.0% | 66.7% | [30%, 90%] | -16.7 | 0.782 |
+| deepseek-flash-thinking | cjson | L3 | 45 | - | 97.8% | 88.9% | [77%, 95%] | -6.7 | 0.730 |
+| deepseek-flash-thinking | inih | L3 | 5 | - | 100.0% | 80.0% | [38%, 96%] | -20.0 | 0.799 |
+| deepseek-flash-thinking | jsmn | L3 | 5 | - | 100.0% | 100.0% | [57%, 100%] | +0.0 | 0.858 |
+| deepseek-flash-thinking | mpc | L3 | 49 | - | 85.7% | 42.9% | [30%, 57%] | -40.8 | 0.706 |
+| deepseek-flash-thinking | parson | L3 | 45 | - | 97.8% | 77.8% | [64%, 87%] | -15.6 | 0.753 |
+| deepseek-flash-thinking | sds | L3 | 16 | - | 100.0% | 93.8% | [72%, 99%] | -6.2 | 0.724 |
+| deepseek-flash-thinking | tiny-regex-c | L3 | 8 | - | 87.5% | 50.0% | [22%, 78%] | -50.0 | 0.727 |
+| deepseek-flash-thinking | tinyexpr | L3 | 18 | - | 72.2% | 61.1% | [39%, 80%] | -11.1 | 0.686 |
+| deepseek-flash-thinking | vec | L3 | 6 | - | 100.0% | 66.7% | [30%, 90%] | -16.7 | 0.700 |
 | deepseek-v4-pro | cjson | L0 | 45 | - | 100.0% | 77.8% | [64%, 87%] | - | 0.747 |
 | deepseek-v4-pro | inih | L0 | 5 | - | 100.0% | 100.0% | [57%, 100%] | - | 0.750 |
 | deepseek-v4-pro | jsmn | L0 | 5 | - | 100.0% | 60.0% | [23%, 88%] | - | 0.870 |
@@ -270,6 +333,7 @@ describe_failed = 重试用尽仍泄漏项目标识符，该目标被排除。�
 - prompt 模板摘要 628a6d1245cf3c17；评测相关代码摘要 6ec45e679e436985。
 - 沙箱：image=gcc:13, image_id=sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a, cpus=1.0, memory=1g, pids=256, timeout_s=120
 - 模型 deepseek-flash：api_model=deepseek-flash；llm_fp=c365aa35fafb220c；temperature=0.0；max_tokens=4096；system_fingerprint=bc19ba97cbe016479903222bb1578db6；reply_model=deepseek-flash
+- 模型 deepseek-flash-thinking：api_model=deepseek-flash；llm_fp=843775e653dcde73；temperature=0.0；max_tokens=4096；system_fingerprint=bc19ba97cbe016479903222bb1578db6；reply_model=deepseek-flash
 - 模型 deepseek-v4-pro：api_model=deepseek-v4-pro；llm_fp=116aef5a9a597dd0；temperature=0.0；max_tokens=4096；system_fingerprint=a307abda487cd1b463329ccb945ce396；reply_model=deepseek-v4-pro
 
 | 语料 | 级别 | seed | 副本源码树哈希 | oracle gate 输入哈希 | 宿主内置头摘要 |
