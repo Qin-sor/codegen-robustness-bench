@@ -1,98 +1,100 @@
-# codegen-robustness-bench · 大模型代码生成鲁棒性评测平台
+# codegen-robustness-bench · LLM Code-Generation Robustness Benchmark
 
-中文 | [English](README.en.md)
+English | [简体中文](README.zh-CN.md)
 
-用「同一份功能规格、不同强度的代码混淆」检验大模型写 C 函数的能力是靠理解，还是靠记忆。
+Using "the same functional specification under code obfuscation of different strength" to test whether an LLM writes C functions from understanding or from memorization.
 
-本文是项目说明：定位、流程、用法、可信度措施和局限都如实写出；第 9 节是三个 DeepSeek 模型在规格生成与缺陷修复两类任务上的实验结果（2026-10-28），解读见 [`docs/实验结果.md`](docs/实验结果.md)；链路本身（prepare 到 verify，以及缺陷修复任务的 mutate）在 9 个真实语料上的集成检查结果见 [`docs/实验记录.md`](docs/实验记录.md)。
-接口契约与设计细节见 [`docs/设计.md`](docs/设计.md)（v0.4，第 10 节是「实现偏差记录」）和缺陷修复任务的附录
-[`docs/设计-缺陷修复任务.md`](docs/设计-缺陷修复任务.md)。
+This document describes the project: its purpose, workflow, usage, credibility measures and limitations, all stated plainly. Section 9 gives experiment results (2026-10-28) for three DeepSeek models on two kinds of task, spec generation and bug repair; for interpretation see [`docs/实验结果.md`](docs/实验结果.md). Integration-check results for the pipeline itself (prepare through verify, plus mutate for the bug-repair task) on the 9 real corpora are in [`docs/实验记录.md`](docs/实验记录.md).
+Interface contracts and design details are in [`docs/设计.md`](docs/设计.md) (v0.4; its Section 10 is the "implementation deviation record") and, for the bug-repair task, in the appendix
+[`docs/设计-缺陷修复任务.md`](docs/设计-缺陷修复任务.md).
 
-## 1. 定位
+**Note:** the documents under `docs/` are written in Chinese only; the links to them in this README point to the Chinese originals.
 
-现有代码生成评测（HumanEval、MBPP，以及直接取自 GitHub 的函数级基准）容易受训练数据泄漏影响：被测函数和它所在的项目
-很可能出现在模型的训练语料里，模型靠记忆而不是靠理解生成代码，分数反映不出真实的工程生成能力。
+## 1. Purpose
 
-本平台的做法：
+Existing code-generation benchmarks (HumanEval, MBPP, and function-level benchmarks taken directly from GitHub) are prone to training-data leakage: the function under test and the project it lives in
+are likely to appear in the model's training corpus, so the model generates code from memory rather than from understanding, and the score does not reflect real engineering ability.
 
-1. 从多个开源 C 项目里提取目标函数及其依赖上下文；
-2. 对**整个项目**做三类可验证的代码混淆：符号（L1）、结构（L2）、语义（L3），每个混淆副本的项目自带测试必须全部通过；
-3. 让模型在「同一份功能规格、不同混淆级别」下重新生成目标函数；
-4. 把生成结果替换回对应的混淆副本，在 Docker 沙箱里编译并运行项目自带测试；
-5. 统计各级别的通过率变化，对失败样本做错误归因，并度量生成结果与原函数的相似度（记忆痕迹）。
+What this platform does:
 
-要回答的问题：
+1. Extract target functions and their dependency context from several open-source C projects;
+2. Apply three kinds of verifiable code obfuscation to the **whole project**: symbol renaming (L1), structural rewriting (L2) and semantic rewriting (L3); every obfuscated copy must still pass all of the project's own tests;
+3. Have the model regenerate the target function under "the same functional specification, different obfuscation levels";
+4. Put the generated code back into the matching obfuscated copy, then compile it and run the project's own tests in a Docker sandbox;
+5. Compute how the pass rate changes across levels, attribute the errors of failed samples, and measure the similarity between the generated code and the original function (a trace of memorization).
 
-1. 同一模型在无混淆（L0）与各级混淆（L1–L3）下的编译通过率、功能测试通过率相差多少；
-2. 失败是哪一类（语法、依赖缺失、类型、逻辑、崩溃、超时、违反约束），随混淆强度如何迁移；
-3. 不同模型的横向对比（任何 OpenAI 兼容端点都能接入）；
-4. L0 生成结果与原函数的相似度是否在 L1 后明显下降。
+Questions it answers:
 
-不做的事：不评测多文件新增功能，不评测 C 以外的语言，不做模型微调。
+1. How much the compile rate and the functional-test pass rate of the same model differ between no obfuscation (L0) and each obfuscation level (L1–L3);
+2. Which kinds of failure occur (syntax, missing dependency, type, logic, crash, timeout, constraint violation), and how they shift as obfuscation gets stronger;
+3. How different models compare (any OpenAI-compatible endpoint can be plugged in);
+4. Whether the similarity between the L0 output and the original function drops noticeably at L1.
 
-**两类并列的任务。** 上面说的是**功能规格生成任务**（generate）：模型的输入只有函数签名、依赖声明和功能规格，没有函数体；
-L2 / L3 的变换发生在函数体内，模型看不到，所以这两级的模型输入与 L1 逐字相同，只对评测侧的项目副本有意义（第 8 节第 7 条）。
-为了让三类混淆都作用在模型读到的代码上，另有**缺陷修复任务**（repair，第 3.4 节）：在每一级副本的目标函数里注入一个能被项目测试捕获的缺陷，
-让模型读这段（混淆后的）函数、返回修正后的函数。两类任务并列报告：生成任务回答「写函数是否依赖记忆」，修复任务回答「读懂并修好函数是否依赖表面形态」。
+What it does not do: it does not evaluate multi-file feature additions or languages other than C, and does not fine-tune models.
 
-## 2. 总体流程
+**Two parallel tasks.** What is described above is the **spec-generation task** (generate): the model's input is only the function signature, the dependency declarations and the functional specification, with no function body.
+The L2 / L3 transformations happen inside the function body, which the model never sees, so at those two levels the model input is word-for-word identical to L1, and the levels matter only for the project copy used on the evaluation side (Section 8, item 7).
+To make all three kinds of obfuscation act on the code the model actually reads, there is also a **bug-repair task** (repair, Section 3.4): a defect that the project's tests can catch is injected into the target function in each level's copy,
+the model reads that (obfuscated) function and returns a corrected one. The two tasks are reported side by side: the generation task answers "does writing a function depend on memorization?", and the repair task answers "does understanding and fixing a function depend on its surface form?".
+
+## 2. Pipeline overview
 
 ```
-prepare    取语料到 corpus/src/<name>，沙箱里确认构建与测试可用
-coverage   沙箱里以 --coverage 编译并跑测试，gcov 得到每个函数的执行次数
-targets    选目标函数：非测试文件、非 main、语句数 ≥ 3、执行次数 > 0、stub-kill 通过
-obfuscate  对整个项目生成 L0 / L1 / L2 / L3 四个副本（含测试文件），记录映射与统计，并 verify
-verify     oracle gate：用混淆后的原函数文本逐目标走一遍完整 evaluate，必须通过，否则该目标作废
-mutate     （只给缺陷修复任务用）在每级副本的目标函数里注入一个缺陷，沙箱里验证「编译通过且项目测试稳定地失败」才出题
-check-mutants  （只给缺陷修复任务用）把 mutate 选定的变异体在沙箱里回放复核，都要稳定地让项目测试失败
-describe   用 LLM 为每个目标生成「不含任何项目标识符」的功能规格（一次生成、四级共用；修复任务不需要它）
-generate   按（目标, 级别, 模型, 样本）出题，调模型，缓存回复；调用失败的样本单独记录，不静默丢弃（--task 选任务类型）
-evaluate   后处理 → 违反约束的直接判定 → 替换回混淆副本 → 沙箱编译 → 跑项目测试 → 归因 → 相似度（--task 选任务类型）
-report     汇总 model × level × corpus 的指标表、归因分布、相似度，输出 md / csv / 图（两类任务并列）
+prepare    fetch the corpus into corpus/src/<name>; confirm in the sandbox that build and tests work
+coverage   compile with --coverage in the sandbox and run the tests; gcov gives each function's execution count
+targets    select target functions: not in a test file, not main, statements ≥ 3, execution count > 0, stub-kill passed
+obfuscate  generate four copies L0 / L1 / L2 / L3 of the whole project (test files included), record the mapping and statistics, then verify
+verify     oracle gate: run a complete evaluate on each target using the obfuscated original function text; it must pass, otherwise the target is voided
+mutate     (bug-repair task only) inject one defect into the target function of each level's copy; a problem is set only if the sandbox confirms "it compiles, and the project tests fail reliably"
+check-mutants  (bug-repair task only) replay the mutants chosen by mutate in the sandbox as a re-check; each must make the project tests fail reliably
+describe   use an LLM to generate a functional specification "containing no project identifiers" for each target (generated once and shared by all four levels; the repair task does not need it)
+generate   set problems per (target, level, model, sample), call the model, cache the replies; samples whose call failed are recorded separately and never silently dropped (--task selects the task type)
+evaluate   post-process → direct verdict on constraint violations → put back into the obfuscated copy → sandbox compile → run project tests → attribution → similarity (--task selects the task type)
+report     aggregate metric tables over model × level × corpus, the attribution distribution and similarity; output md / csv / figure (both tasks side by side)
 ```
 
-每一步幂等：输出已存在且输入哈希没变就跳过；所有随机性由 `--seed` 决定。
-出题（`generate` / `evaluate` 的前置）时会再核对一遍上游产出：副本、oracle gate、功能规格对不上现状的目标直接作废并计数，
-不会因为中间某个阶段被跳过就用上过期数据。
+Every step is idempotent: if the output already exists and the input hash has not changed, the step is skipped; all randomness is determined by `--seed`.
+When problems are set (the step before `generate` / `evaluate`), the upstream outputs are cross-checked once more: targets whose copies, oracle gate or functional specification no longer match the current state are voided and counted,
+so stale data is never used just because some intermediate stage was skipped.
 
-## 3. 快速开始
+## 3. Quick start
 
-### 3.1 环境
+### 3.1 Environment
 
-* Python 3.10（`pyproject.toml` 的 `requires-python`；低版本 import `bench` 时会给出明确提示）；
-  依赖：`pip install clang==14.0 pytest pyflakes`（运行时只要 `clang==14.0`；`pyproject.toml` 声明 Python 版本、依赖和 pytest 配置，
-  项目不打包安装，直接在项目根目录运行）。libclang 库文件默认在
-  `/usr/lib/llvm-14/lib/libclang.so.1`，不在那里时用环境变量 `LIBCLANG_PATH` 指定；
-* Docker，并且本地有镜像 `gcc:13`（`docker pull gcc:13`）。语料仓库里的构建、测试，以及模型生成的 C 代码，
-  只在沙箱里执行（`--network none --cap-drop ALL --pids-limit --memory --cpus`，非 root 用户），宿主机不直接 make；
-* 不需要其它第三方依赖：HTTP 用标准库 urllib，图用标准库直接写 SVG；
-* 下面的命令都在项目根目录下运行（`python3 -m bench` 要能 import `bench` 包）。
+* Python 3.10 (the `requires-python` in `pyproject.toml`; older versions get a clear message when `bench` is imported).
+  Dependencies: `pip install clang==14.0 pytest pyflakes` (only `clang==14.0` is needed at runtime; `pyproject.toml` declares the Python version, the dependencies and the pytest configuration,
+  and the project is not packaged for installation: run it directly from the project root). The libclang library is expected at
+  `/usr/lib/llvm-14/lib/libclang.so.1` by default; if it is elsewhere, point to it with the environment variable `LIBCLANG_PATH`;
+* Docker, with the image `gcc:13` available locally (`docker pull gcc:13`). Builds and tests of the corpus repositories, as well as the C code generated by models,
+  are executed only inside the sandbox (`--network none --cap-drop ALL --pids-limit --memory --cpus`, non-root user); the host never runs make directly;
+* No other third-party dependencies are needed: HTTP uses the standard library's urllib, and figures are written directly as SVG with the standard library;
+* The commands below are all run from the project root (`python3 -m bench` has to be able to import the `bench` package).
 
-### 3.2 先跑离线自测
+### 3.2 Run the offline self-test first
 
-不需要 API key，不联网，用 `tests/fixtures/mini` 这个自写的小项目和 MockLLM 把全链路跑一遍（生成任务和缺陷修复任务都跑；
-在 16 核 / 15 GB 的开发机上实测 5 到 7 分钟，结束时打印「用时 N s」；随机器和并发度而变，不是保证值）：
+No API key and no network are needed. It runs the whole pipeline on `tests/fixtures/mini`, a small purpose-written project, with MockLLM (both the generation task and the bug-repair task are run;
+measured at 5 to 7 minutes on a 16-core / 15 GB development machine, with the elapsed time printed at the end as "用时 N s" ("elapsed N s"); this varies with the machine and the concurrency and is not a guaranteed figure):
 
 ```bash
 python3 -m bench e2e --backend mock
 ```
 
-它会跑 L0–L3 × oracle / broken / wrong 三种 MockLLM 模式，并断言：oracle 100% pass；broken 100% compile_syntax；
-wrong（返回零值 / 空函数体的桩）一个都不通过，且每个样本的归因恰好等于 stub-kill 记录的杀死方式
-（绝大多数是 test_fail；个别目标的桩会让后面的测试代码读到未初始化的状态而崩溃，归 runtime_crash，那是 stub-kill 已经记下的事实）；
-每个副本的 verify 与 oracle gate 全过；把所有阶段再跑一遍必须全部跳过。输出在 `tmp/e2e/`，不碰 `results/`。
+It runs L0–L3 × the three MockLLM modes oracle / broken / wrong, and asserts that: oracle gets 100% pass; broken gets 100% compile_syntax;
+for wrong (a zero-value stub that returns a zero value or has an empty function body) not a single sample passes, and each sample's attribution equals exactly the kill mode recorded by stub-kill
+(mostly test_fail; for a few targets the stub makes later test code read uninitialized state and crash, which is attributed to runtime_crash, a fact stub-kill has already recorded);
+verify and the oracle gate pass for every copy; and rerunning every stage must skip all of them. Output goes to `tmp/e2e/`; `results/` is not touched.
 
-缺陷修复任务在同一次 e2e 里跑 mutate → generate → evaluate → check-mutants，MockLLM 多三个只用于修复任务的模式并断言：
-oracle 100% pass 且 restored（逐字还原）；unchanged（原样返回变异体）一个都不通过、stage 为 test、`unchanged` 为真，归因与变异体的 `kill_mode`
-一致的比例不低于 95%；reformat（原函数换排版、加注释）100% pass、`restored` 为真、`unchanged` 为假，检验规范化比较只忽略排版与注释；
-touched（变异体加一条无害语句）一个都不通过，`unchanged` 与 `restored` 都为假，检验「改了别处、缺陷还在」不会被算成什么也没改；
-broken 100% compile_syntax；wrong 一个都不通过且归因等于 stub-kill 记录；每个被杀死了变异体的（目标, 级别）都出了题，出题率不低于 90%；
-回放复核（`check-mutants --oracle`）里变异体都仍被杀死、没有一个通过，去注释的原函数都通过。
+The bug-repair task runs mutate → generate → evaluate → check-mutants in the same e2e run. MockLLM has three more modes, used only for the repair task, and the run asserts that:
+oracle gets 100% pass and restored (restored verbatim); for unchanged (returns the mutant as is) not a single sample passes, the stage is test, `unchanged` is true, and the share whose attribution agrees with the mutant's `kill_mode`
+is at least 95%; reformat (the original function with different formatting and added comments) gets 100% pass with `restored` true and `unchanged` false, which checks that the normalized comparison ignores only formatting and comments;
+for touched (the mutant plus one harmless statement) not a single sample passes and both `unchanged` and `restored` are false, which checks that "changed something elsewhere, defect still there" is not counted as changing nothing;
+broken gets 100% compile_syntax; for wrong not a single sample passes and its attribution equals the stub-kill record; every (target, level) whose mutant was killed had a problem set, with a problem-setting rate of at least 90%;
+and in the replay re-check (`check-mutants --oracle`) all mutants are still killed and none passes, while all comment-stripped original functions pass.
 
-### 3.3 跑真实语料
+### 3.3 Run on the real corpora
 
 ```bash
-export DEEPSEEK_API_KEY=...            # 只从环境变量读，不写进任何文件、日志或结果
+export DEEPSEEK_API_KEY=...            # read from the environment only; never written to any file, log or result
 
 python3 -m bench prepare   --corpus cjson sds
 python3 -m bench coverage  --corpus cjson sds
@@ -105,279 +107,280 @@ python3 -m bench evaluate  --corpus cjson sds --model deepseek-flash --tag pilot
 python3 -m bench report    --tag pilot
 ```
 
-* `--corpus` 可多选，省略则是 `corpus/specs/` 下的全部 9 个语料；`--seed` 默认 20261027；`--jobs` 是沙箱与 LLM 调用的并发度。
-* 正式调用前先 `python3 -m bench generate --dry-run ...`：只估算还要发多少次请求（扣掉已有回复）、去重后有多少个不同的请求、
-  提示 token 约多少，不构造模型、不写文件。L1–L3 的提示词逐字相同（见第 8 节），共用同一个缓存键，所以四级全开时真实请求数约为任务数的一半。
-* `describe` 与 `generate` 只有真有活要干时才需要 API key：输出都已是最新的，纯离线续跑、复核不会因为没设 key 报错。
-* 模型名：设计文档里的 `deepseek-chat` / `deepseek-reasoner` 在 DeepSeek 官方 Change Log 里有 2026-07-24 起弃用的通知，
-  是否还能调用以官方当前文档为准；默认和预设改用 `bench/llm.py` 的 `PRESETS`（`deepseek-flash`、`deepseek-flash-thinking`、
-  `deepseek-v4-pro`、`deepseek-v4-pro-thinking`），旧名字只作为 legacy 预设保留，使用时给出警告。
-  `mock-oracle` / `mock-broken` / `mock-wrong` / `mock-empty` 是离线自测用的假模型（`mock-unchanged`、`mock-reformat`、`mock-touched` 只用于缺陷修复任务：
-  原样返回变异体、返回换了排版加了注释的原函数、返回加了一条无害语句的变异体），只有 `--unsafe-debug` 才允许写进真实工作区。
-  其它 OpenAI 兼容端点在 `PRESETS` 里加一项即可。
-* 多样本：`--samples N` 需要 `--temperature > 0`；样本 i 把 i 当 seed 参与缓存键，所以每个样本单独请求、单独缓存。
-  DeepSeek 预设不把 seed 发给 API（文档里没有这个参数），样本之间的差异来自 temperature 采样。
-  `--no-cache` 不读 LLM 缓存（照常写入）：`--force` 只作废已有记录，缓存命中仍会原样复用旧回复，要重新采样得两个一起加。
-* 语料来源：设置了环境变量 `CORPUS_MIRROR` 且那里有对应的本地克隆时，`prepare` 直接复制它、不联网；没设置就按 spec 的 url + commit
-  克隆（不会去猜任何本机目录）。git 联网时，环境变量里配了代理就先探测：连得上照常用，一个都连不上才临时绕开
-  （`CORPUS_KEEP_PROXY=1` 强制保留，`CORPUS_NO_PROXY=1` 强制清掉）；调模型的客户端默认走环境变量里的代理，`BENCH_LLM_NO_PROXY=1` 关掉。
-* 评测中途被打断（Ctrl-C、进程被杀）可以直接续跑：已落盘的产出按输入哈希复用，结果文件里留下的半行会被识别并计数。
+* `--corpus` accepts several values; if omitted, all 9 corpora under `corpus/specs/` are used. `--seed` defaults to 20261027; `--jobs` is the concurrency of sandbox and LLM calls.
+* Before the real run, do `python3 -m bench generate --dry-run ...` first: it only estimates how many requests still have to be sent (minus replies already on hand), how many distinct requests there are after deduplication,
+  and roughly how many prompt tokens that is; it does not construct a model and writes no files. The L1–L3 prompts are word-for-word identical (see Section 8) and share one cache key, so with all four levels enabled the real number of requests is about half the number of tasks.
+* `describe` and `generate` need an API key only when there is actually work to do: if their outputs are already up to date, a purely offline resume or re-check does not fail for lack of a key.
+* Model names: the DeepSeek official Change Log announces that `deepseek-chat` / `deepseek-reasoner`, the names used in the design document, are deprecated from 2026-07-24;
+  whether they can still be called is determined by the current official documentation. The defaults and presets now use the `PRESETS` in `bench/llm.py` (`deepseek-flash`, `deepseek-flash-thinking`,
+  `deepseek-v4-pro`, `deepseek-v4-pro-thinking`); the old names are kept only as legacy presets and give a warning when used.
+  `mock-oracle` / `mock-broken` / `mock-wrong` / `mock-empty` are fake models for the offline self-test (`mock-unchanged`, `mock-reformat` and `mock-touched` are used only by the bug-repair task:
+  they return the mutant as is, return the original function reformatted with comments added, and return the mutant plus one harmless statement, respectively); only `--unsafe-debug` allows them to be written into the real workspace.
+  Any other OpenAI-compatible endpoint can be added as one more entry in `PRESETS`.
+* Multiple samples: `--samples N` requires `--temperature > 0`; sample i uses i as a seed in the cache key, so every sample is requested and cached separately.
+  The DeepSeek presets do not send the seed to the API (the documentation has no such parameter), so the differences between samples come from temperature sampling.
+  `--no-cache` does not read the LLM cache (it still writes to it): `--force` only invalidates existing records, and a cache hit still reuses the old reply unchanged, so to resample you need to pass both.
+* Corpus source: if the environment variable `CORPUS_MIRROR` is set and holds a matching local clone, `prepare` copies it directly without going online; if it is not set, `prepare` clones from the spec's url + commit
+  (it never guesses any local directory). When git goes online and a proxy is configured in the environment, it probes first: a reachable proxy is used as usual, and the proxy is bypassed temporarily only if none of them can be reached
+  (`CORPUS_KEEP_PROXY=1` forces it to be kept, `CORPUS_NO_PROXY=1` forces it to be cleared); the client that calls the model uses the proxy from the environment by default, and `BENCH_LLM_NO_PROXY=1` turns that off.
+* An evaluation interrupted midway (Ctrl-C, process killed) can simply be resumed: outputs already on disk are reused according to their input hash, and a half-written line left in a result file is recognized and counted.
 
-### 3.4 缺陷修复任务
+### 3.4 Bug-repair task
 
 ```bash
-python3 -m bench mutate        --corpus cjson sds                  # 出题：在每级副本的目标函数里注入缺陷（先要有 verify 的产出）
-python3 -m bench check-mutants --corpus cjson sds --oracle         # 回放复核：变异体都仍被杀死，去注释的原函数都通过
+python3 -m bench mutate        --corpus cjson sds                  # set problems: inject defects into the target function of each level's copy (verify output must exist first)
+python3 -m bench check-mutants --corpus cjson sds --oracle         # replay re-check: every mutant is still killed, every comment-stripped original function passes
 python3 -m bench generate  --corpus cjson sds --model deepseek-flash --task repair
 python3 -m bench evaluate  --corpus cjson sds --model deepseek-flash --task repair --tag pilot
-python3 -m bench report    --tag pilot                             # 默认 --task all：生成与修复两张并列的表
+python3 -m bench report    --tag pilot                             # default is --task all: generation and repair tables side by side
 ```
 
-* **题目。** 模型拿到依赖声明和该级副本里**注入了一处缺陷的完整函数**（已去掉注释），没有功能规格、没有测试输出、不说明缺陷在哪，
-  要返回修正后的完整函数（签名不变、不新增 `#include`）；判定与生成任务完全相同（替换 → 语法检查 → 构建 → 项目测试 → 归因），通过 = 项目测试全过。
-  提示词模板在 `bench/prompt.py`（`REPAIR_PROMPT_VERSION` / `REPAIR_PROMPT_DIGEST`，与生成任务的 `PROMPT_VERSION` / `PROMPT_DIGEST` 分开）。
-* **变异算子。** 八个：ROR（关系算子替换）、NEG（条件取反）、LOR（逻辑算子替换）、OBO（差一）、DGS（删守卫）、AOR（算术算子替换）、
-  RVR（返回值替换）、DST（删语句），在目标函数体上按 AST 找位点、按字节偏移改写，改写后整份文件必须能用 libclang 零新增 error 重新解析。
-  宏实参里的、宏生成的、含预处理指令行的位点一律不动。
-* **选择与 kill 检查。** 每个（目标, 级别）把全部位点按固定顺序洗牌（由 `--seed` 和目标决定，**种子里没有级别**），依次把变异体当作候选
-  走一遍完整 evaluate：编译通过且在**测试阶段**失败（`test_fail` / `runtime_crash` / `runtime_timeout`，记为 `kill_mode`）才算杀死、才出题；
-  测试仍全过的是等价变异体，编译失败的不算杀死；最多试 `--max-tries`（默认 12）个位点，试满仍没有杀死就放弃这个（目标, 级别）并计数。
-  只处理 oracle gate 通过的（目标, 级别）。
-* **复核。** 判为杀死的候选再评测一次，第二次仍然失败才出题（记 `kill_recheck`）；第二次通过了的（崩溃 / 超时 / OOM 的结局会随负载变，
-  删赋值留下的未初始化变量也是）计入 `unstable_count`，不出题、继续试下一个位点。复核在同一并发度下做，只能挡掉一部分偶发情况；
-  要在安静的机器上再确认一遍，用 `check-mutants`（`--jobs 1`）。
-* **跨级别：同一个缺陷。** L1 只改标识符，位点表与序号一一对应，所以 L0 先选，L1–L3 先试 **L0 选定的那个位点在本级的对应位点**，再优先试同一个算子的位点
-  （`same_operator_as_L0`）。L1 的对应是精确的；L2 / L3 改写了函数体，靠记号序列对齐（标识符一律当作同一个记号，
-  位点的记号和前后各一个记号都对得上才算），记号被改掉的位点（`x == 0` 换成 `!x`、`a < b` 换成 `b > a`、`if` / `else` 交换后的条件）
-  对不上，就退回到只复用算子。选中的变异体记 `same_site_as_L0`；OBO 的 ±1 也按 L0 位点的序号决定，同一个缺陷在各级改成同一个方向。
-  **「四级同算子」子集恒等于「四级都出了题」，不构成对照**（复用算子保证了这一点）；报告里的**可比子集**是四级同一个位点、提示词上下文又没有被裁条目的目标
-  （各自的个数由 `python3 -m bench.experiment_record` 从数据文件算出，写在 `docs/实验记录.md` 里）。
-* **去注释。** 符号混淆只改标识符，L1 以上函数体注释里仍是项目原有的名字，原样放进提示词会泄漏本该隐藏的名字；
-  所以四个级别的变异体都先去注释再做 kill 检查，函数里有注释的还要先把去注释后的原函数放回副本再跑一遍项目测试，不通过就放弃这个（目标, 级别）
-  （不搜索，也不拿它当 L1–L3 的参照）。字符串字面量里的原名无法去掉（改了就改变行为）：目标函数自己的原名出现在字面量里的 L1 以上的题出题时作废
-  （`name_in_literal`），其余只能如实统计。
-* **提示词上下文。** 依赖声明原本取自原函数，缺陷删掉的调用、宏、全局还留在里面等于把答案线索写进提示词，所以出题时按注入缺陷后的函数重新裁剪
-  （`prompt.prune_context`，只裁原型、宏和全局，类型定义不裁），被裁掉的名字记在任务记录的 `context_orphans` 里；这样的题修复它可能需要提示词里没有的名字，
-  难度来自信息缺口而不是混淆，不进可比子集，报告里单列通过率。
-* **不可靠的题。** `unchanged` 的候选（模型什么也没改）却通过了项目测试，说明变异体没有被测试稳定地杀死：`evaluate` 点名并让阶段失败，
-  `report` 把这道题整题（所有模型、所有样本）剔除并在开头点名。
-* **结果记录。** 每条多 `task`（`repair`）、`mutation`（算子、位点序号、原文、改成了什么）、`kill_mode`（变异体怎么死的）、`stub_kill_mode`（目标被零值桩杀死的方式）、
-  `unchanged`（候选与变异体规范化后相同，即模型什么也没改）、`restored`（候选与该级原函数规范化后相同，即逐字还原）、`same_operator_as_L0`、`same_site_as_L0`、
-  `context_orphans`。规范化只忽略排版与注释，标识符原样比较。修复任务里 `restored` 与相似度**不是记忆指标**（提示词里本来就是只差一处的原函数，
-  单点缺陷的任何正确修复都逐字等于原函数），要看级别之间通过率的变化。
-* **回放复核 `check-mutants`。** 把 mutate 选定的变异体当作候选再评测一遍（相当于 `mock-unchanged` 的评测，但不经过 generate / evaluate，不写评测结果）：
-  都要在测试阶段失败，杀死方式有没有变也记下来（两种结局都算被杀死，只影响分层标签）；`--oracle` 另把去注释后的原函数放回副本，都要通过。
-  结果写进 `results/mutants-<语料>.check.json`，只要有一个变异体回放通过了测试，命令就返回非零。出题与评测前核对 mutate 产出有没有过期，对不上直接报错。
-* **`--task`。** `generate` / `evaluate` / `report` 都有 `--task {generate,repair,all}`，默认 `all`：生成任务照常处理，
-  修复任务只在 mutate 已经有产出时一并处理（没有就给出提示并跳过，免得只想做生成任务的人被拦住）；`--task repair` 在没跑 mutate 时直接报错并提示先运行 mutate。
-  `report` 里哪一类任务没有结果文件就只出另一类。生成任务的 `--tag` 与模型名不能以 `repair-` 开头（会与修复任务的 `results-repair-<tag>.jsonl` 等文件撞名）。
-* **局限。** 见第 8 节最后几条：变异体是人工注入的单点缺陷，不给测试输出，崩溃型 / 超时型杀死的目标测试可能不检查返回内容，提示词上下文被裁剪过，
-  修复任务的相似度和 restored 率不是记忆指标，NEG 缺陷的显眼程度随级别变化，字符串字面量里的项目词汇去不掉。
+* **The problem.** The model gets the dependency declarations and the **complete function with one defect injected** in that level's copy (comments stripped); there is no functional specification, no test output, and no hint about where the defect is.
+  It has to return the corrected complete function (signature unchanged, no new `#include`). Judging is exactly the same as for the generation task (put back → syntax check → build → project tests → attribution), and pass = all project tests pass.
+  The prompt template is in `bench/prompt.py` (`REPAIR_PROMPT_VERSION` / `REPAIR_PROMPT_DIGEST`, kept separate from the generation task's `PROMPT_VERSION` / `PROMPT_DIGEST`).
+* **Mutation operators.** Eight: ROR (relational operator replacement), NEG (condition negation), LOR (logical operator replacement), OBO (off-by-one), DGS (delete guard), AOR (arithmetic operator replacement),
+  RVR (return value replacement), DST (delete statement). Sites are found on the target function body via the AST and rewritten by byte offset; after rewriting, the whole file must re-parse with libclang with zero new errors.
+  Sites inside macro arguments, sites generated by macros and sites on lines containing preprocessor directives are never touched.
+* **Selection and kill check.** For each (target, level), all sites are shuffled into a fixed order (determined by `--seed` and the target; **the level is not part of the seed**), and the mutants are taken in turn as candidates
+  and put through a complete evaluate: only a mutant that compiles and fails in the **test stage** (`test_fail` / `runtime_crash` / `runtime_timeout`, recorded as `kill_mode`) counts as killed and gets a problem set;
+  a mutant for which all tests still pass is an equivalent mutant, and one that fails to compile does not count as killed. At most `--max-tries` (default 12) sites are tried; if none is killed after that, the (target, level) is given up and counted.
+  Only (target, level) pairs that pass the oracle gate are processed.
+* **Re-check.** A candidate judged killed is evaluated once more, and a problem is set only if it fails the second time too (recorded as `kill_recheck`); a candidate that passes the second time (the outcome of a crash / timeout / OOM varies with load,
+  and so does an uninitialized variable left behind by a deleted assignment) is counted in `unstable_count`, no problem is set, and the next site is tried. The re-check runs at the same concurrency, so it filters out only some of the sporadic cases;
+  to confirm once more on a quiet machine, use `check-mutants` (`--jobs 1`).
+* **Across levels: the same defect.** L1 changes only identifiers, so its site table corresponds to the L0 table one to one, by index. L0 therefore chooses first, and L1–L3 first try **the site at their own level that corresponds to the one L0 chose**,
+  then prefer sites of the same operator (`same_operator_as_L0`). The correspondence at L1 is exact; L2 / L3 rewrite the function body, so they align by token sequence (all identifiers are treated as one and the same token,
+  and a site matches only if its own token and one token on each side all match). A site whose tokens were rewritten (`x == 0` turned into `!x`, `a < b` into `b > a`, the condition after an `if` / `else` swap)
+  cannot be matched, and the choice falls back to reusing the operator only. The selected mutant is recorded with `same_site_as_L0`; the ±1 of OBO is also decided by the index of the L0 site, so the same defect is changed in the same direction at every level.
+  **The "same operator at all four levels" subset is always identical to "problem set at all four levels", so it is not a control** (reusing the operator guarantees this); the **comparable subset** in the report consists of targets
+  that have the same site at all four levels and no pruned entries in the prompt context (the respective counts are computed from the data files by `python3 -m bench.experiment_record` and written in `docs/实验记录.md`).
+* **Comment stripping.** Symbol renaming changes only identifiers, so in the function-body comments at L1 and above the project's original names are still there, and putting them into the prompt unchanged would leak names that are supposed to be hidden;
+  the mutants of all four levels are therefore comment-stripped before the kill check. For a function that has comments, the comment-stripped original function is first put back into the copy and the project tests are run once more;
+  if they fail, the (target, level) is given up (no search, and it is not used as a reference for L1–L3). Original names inside string literals cannot be removed (changing them would change behavior): a problem at L1 or above
+  whose target function's own original name appears in a literal is voided when problems are set (`name_in_literal`), and the rest can only be tallied and reported as they are.
+* **Prompt context.** The dependency declarations were originally taken from the original function, so calls, macros and globals that the defect deleted would still be in there, which amounts to writing a clue to the answer into the prompt.
+  Problems are therefore re-pruned against the function with the defect injected when they are set (`prompt.prune_context`; only prototypes, macros and globals are pruned, type definitions are not),
+  and the pruned names are recorded in the task record's `context_orphans`. Repairing such a problem may need names that are not in the prompt, so its difficulty comes from an information gap rather than from obfuscation;
+  it is left out of the comparable subset, and its pass rate is reported separately.
+* **Unreliable problems.** If an `unchanged` candidate (the model changed nothing) nevertheless passes the project tests, the mutant is not reliably killed by the tests: `evaluate` names it and fails the stage,
+  and `report` drops the whole problem (all models, all samples) and names it at the top.
+* **Result records.** Each record carries these extra fields: `task` (`repair`), `mutation` (operator, site index, original text, what it was changed into), `kill_mode` (how the mutant died), `stub_kill_mode` (how the target was killed by the zero-value stub),
+  `unchanged` (the candidate equals the mutant after normalization, i.e. the model changed nothing), `restored` (the candidate equals that level's original function after normalization, i.e. restored verbatim), `same_operator_as_L0`, `same_site_as_L0`,
+  `context_orphans`. Normalization ignores only formatting and comments; identifiers are compared as they are. In the repair task `restored` and similarity are **not memorization metrics** (the prompt already contains the original function with a difference in only one place,
+  and any correct fix of a single-point defect is word for word equal to the original function); look at how the pass rate changes between levels.
+* **Replay re-check `check-mutants`.** The mutants chosen by mutate are taken as candidates and evaluated again (equivalent to evaluating `mock-unchanged`, but without going through generate / evaluate and without writing evaluation results):
+  each must fail in the test stage, and whether the kill mode changed is also recorded (either outcome counts as killed; it only affects the stratification label); with `--oracle`, the comment-stripped original function is additionally put back into the copy, and each must pass.
+  The result is written to `results/mutants-<corpus>.check.json`, and the command returns non-zero as soon as one mutant's replay passes the tests. Before problems are set and before evaluation, the mutate output is checked for staleness, and a mismatch is an immediate error.
+* **`--task`.** `generate` / `evaluate` / `report` all take `--task {generate,repair,all}`, default `all`: the generation task is processed as usual, and the repair task is processed along with it only if mutate already has output
+  (otherwise a notice is printed and it is skipped, so that someone who only wants the generation task is not blocked); `--task repair` fails with an error telling you to run mutate first if mutate has not been run.
+  In `report`, if one task type has no result file, only the other is produced. For the generation task, `--tag` and the model name must not start with `repair-` (they would collide with files such as the repair task's `results-repair-<tag>.jsonl`).
+* **Limitations.** See the last few items of Section 8: the mutants are artificially injected single-point defects; no test output is given; for targets killed by a crash / timeout the tests may not check the returned content; the prompt context has been pruned;
+  similarity and the restored rate in the repair task are not memorization metrics; how conspicuous a NEG defect is varies with the level; and project vocabulary inside string literals cannot be removed.
 
-## 4. 命令参考
+## 4. Command reference
 
-`python3 -m bench <cmd>`，所有命令都接受 `--corpus`、`--seed`、`--jobs`、`--force`（忽略已有产出）、`--workspace DIR`
-（把 results、语料副本、混淆副本、临时目录都放进另一个目录）、`--image` / `--cpus` / `--memory`（沙箱参数）、`--unsafe-debug`、`-v` / `--verbose`。
+`python3 -m bench <cmd>`. All commands accept `--corpus`, `--seed`, `--jobs`, `--force` (ignore existing outputs), `--workspace DIR`
+(put results, corpus copies, obfuscated copies and temporary directories all into another directory), `--image` / `--cpus` / `--memory` (sandbox parameters), `--unsafe-debug` and `-v` / `--verbose`.
 
-`--task` 的取值：`generate`（功能规格生成任务）、`repair`（缺陷修复任务，先运行 `mutate`）、`all`（默认，两类都处理；修复任务在 mutate 还没有产出时给出提示并跳过）。
-`--tag` 与 `--model` 的取值不能以 `repair-` 开头（会与修复任务的数据文件撞名，当作用法错误拒绝）。
+Values of `--task`: `generate` (the spec-generation task), `repair` (the bug-repair task; run `mutate` first), `all` (the default; handles both, and the repair task is skipped with a notice if mutate has no output yet).
+Values of `--tag` and `--model` must not start with `repair-` (they would collide with the repair task's data files, and are rejected as a usage error).
 
-退出码：0 成功；1 某阶段失败（含 evaluate / report 发现缺样本或坏行）或 e2e 断言不成立；2 用法错误或缺前置条件
-（缺上游产出、没有 API key、docker 不可用等）；130 被 Ctrl-C 中断（已落盘的产出可以续跑）。
-未预期的运行期故障（沙箱不可用、libclang 解析失败等）返回 1，完整堆栈追加写在工作区 `results/bench-error.log`。
+Exit codes: 0 success; 1 a stage failed (including evaluate / report finding missing samples or bad lines) or an e2e assertion does not hold; 2 usage error or missing prerequisite
+(missing upstream output, no API key, docker unavailable, etc.); 130 interrupted by Ctrl-C (outputs already on disk can be resumed).
+Unexpected runtime failures (sandbox unavailable, libclang parse failure, etc.) return 1, and the full stack trace is appended to `results/bench-error.log` in the workspace.
 
-`--unsafe-debug` 是唯一「放宽可信度措施」的开关（`targets` 可以跳过 stub-kill、允许 mock 描述、放行没做过 stub-kill 的目标），
-只给调试用，产出不可用于正式报告，报告开头会写明。
+`--unsafe-debug` is the only switch that "relaxes the credibility measures" (`targets` may skip stub-kill, allow mock descriptions, and let through targets that never went through stub-kill);
+it is for debugging only, its outputs must not be used for a formal report, and the start of the report says so.
 
-| 命令 | 作用 | 主要选项 | 产出 |
+| Command | What it does | Main options | Outputs |
 |---|---|---|---|
-| `prepare` | 取源码并在沙箱里确认构建与测试可用 | `--src DIR` 本地源码，`--no-build-check` | `corpus/src/<name>`，`results/prepare-<name>.json` |
-| `coverage` | 带 `--coverage` 构建，gcov 取函数执行次数 | | `results/coverage-<name>.json` |
-| `targets` | 选目标：静态过滤、执行次数、按 seed 抽样、stub-kill | `--max-per-corpus`，`--min-statements`，`--min-lines`，`--max-lines`，`--no-exec-filter`，`--no-stub-kill`（要同时加 `--unsafe-debug`），`--lazy` | `results/targets-<name>.jsonl`、`.summary.json` |
-| `obfuscate` | 生成混淆副本并 verify | `--level` / `--levels L0 L1 L2 L3`，`--strict-stringify auto/on/off` | `results/obf-<name>-<level>.json`，`tmp/obf/<name>/<level>/` |
-| `verify` | oracle gate：逐目标用混淆后的原函数走完整 evaluate | `--level` / `--levels` | 写回 `obf-*.json` 的 `oracle_gate` |
-| `mutate` | 缺陷修复任务的出题：在每级副本的目标函数里注入缺陷并做 kill 检查，判为杀死的再复核一次（需要先 verify） | `--level` / `--levels`，`--max-tries`（默认 12） | `results/mutants-<name>-<level>.jsonl`、`results/mutants-<name>.summary.json` |
-| `check-mutants` | 回放复核 mutate 选定的变异体：都要仍然在测试阶段失败，杀死方式有没有变 | `--level` / `--levels`，`--oracle`（另把去注释的原函数放回副本，都要通过） | `results/mutants-<name>.check.json` |
-| `describe` | 为每个目标生成不含标识符的功能规格 | `--model` | `results/descriptions.jsonl` |
-| `generate` | 出题并调模型 | `--model`（可多个），`--levels` / `--level`，`--samples`，`--temperature`，`--max-tokens`，`--dry-run`，`--no-cache`，`--task` | `results/tasks.jsonl`，`results/generations-<model>.jsonl`，`results/generation-failures-<model>.jsonl`（修复任务见第 6 节） |
-| `evaluate` | 评测回复：后处理、替换、编译、测试、归因、相似度 | `--model`（可多个），`--levels` / `--level`，`--tag`，`--allow-missing`，`--task` | `results/results-<tag>.jsonl`，`results/completeness-<tag>.json`（修复任务见第 6 节） |
-| `report` | 汇总指标（两类任务并列） | `--tag`，`--task`，`--format md csv svg`，`--allow-stale`，`--allow-missing` | `results/summary-<tag>.md` / `.csv`，`results/fig-<tag>.svg` |
-| `e2e` | mini 夹具上的全链路自测 | `--backend mock`，`--keep`，`--levels` | `tmp/e2e/` |
+| `prepare` | Fetch the sources and confirm in the sandbox that build and tests work | `--src DIR` local sources, `--no-build-check` | `corpus/src/<name>`, `results/prepare-<name>.json` |
+| `coverage` | Build with `--coverage`; gcov gives per-function execution counts | | `results/coverage-<name>.json` |
+| `targets` | Select targets: static filtering, execution counts, sampling by seed, stub-kill | `--max-per-corpus`, `--min-statements`, `--min-lines`, `--max-lines`, `--no-exec-filter`, `--no-stub-kill` (must be combined with `--unsafe-debug`), `--lazy` | `results/targets-<name>.jsonl`, `.summary.json` |
+| `obfuscate` | Generate the obfuscated copies and verify | `--level` / `--levels L0 L1 L2 L3`, `--strict-stringify auto/on/off` | `results/obf-<name>-<level>.json`, `tmp/obf/<name>/<level>/` |
+| `verify` | oracle gate: run a complete evaluate per target with the obfuscated original function | `--level` / `--levels` | Written back into the `oracle_gate` of `obf-*.json` |
+| `mutate` | Problem setting for the bug-repair task: inject defects into the target function of each level's copy and run the kill check; a mutant judged killed is re-checked once more (verify must have run first) | `--level` / `--levels`, `--max-tries` (default 12) | `results/mutants-<name>-<level>.jsonl`, `results/mutants-<name>.summary.json` |
+| `check-mutants` | Replay re-check of the mutants chosen by mutate: each must still fail in the test stage; also records whether the kill mode changed | `--level` / `--levels`, `--oracle` (additionally puts the comment-stripped original function back into the copy; each must pass) | `results/mutants-<name>.check.json` |
+| `describe` | Generate an identifier-free functional specification for each target | `--model` | `results/descriptions.jsonl` |
+| `generate` | Set problems and call the model | `--model` (several allowed), `--levels` / `--level`, `--samples`, `--temperature`, `--max-tokens`, `--dry-run`, `--no-cache`, `--task` | `results/tasks.jsonl`, `results/generations-<model>.jsonl`, `results/generation-failures-<model>.jsonl` (for the repair task see Section 6) |
+| `evaluate` | Evaluate replies: post-processing, replacement, compilation, tests, attribution, similarity | `--model` (several allowed), `--levels` / `--level`, `--tag`, `--allow-missing`, `--task` | `results/results-<tag>.jsonl`, `results/completeness-<tag>.json` (for the repair task see Section 6) |
+| `report` | Aggregate the metrics (both task types side by side) | `--tag`, `--task`, `--format md csv svg`, `--allow-stale`, `--allow-missing` | `results/summary-<tag>.md` / `.csv`, `results/fig-<tag>.svg` |
+| `e2e` | End-to-end self-test of the whole pipeline on the mini fixture | `--backend mock`, `--keep`, `--levels` | `tmp/e2e/` |
 
-### 环境变量
+### Environment variables
 
-| 变量 | 用途 |
+| Variable | Purpose |
 |---|---|
-| `BENCH_ROOT` | 项目根（默认由 `bench/store.py` 的位置推出） |
-| `BENCH_RESULTS_DIR` / `BENCH_CORPUS_SRC` / `BENCH_OBF_DIR` / `BENCH_WORK_DIR` | 结果目录、语料目录、混淆副本目录、临时工作目录（默认分别是 `results/`、`corpus/src/`、`tmp/obf/`、`tmp/work/`） |
-| `BENCH_SPEC_DIR` | spec 目录（默认 `corpus/specs/`） |
-| `LIBCLANG_PATH` | libclang 库文件 |
-| `BENCH_CLANG_INCLUDE` | libclang 找不到编译器内置头（stddef.h 等）时，显式指定内置头目录（`os.pathsep` 分隔） |
-| `CORPUS_MIRROR` | 本地克隆镜像目录，`prepare` 优先复制；没设置就不用镜像 |
-| `CORPUS_GIT_TIMEOUT` | 联网 git 命令的超时秒数（默认 180） |
-| `CORPUS_KEEP_PROXY` / `CORPUS_NO_PROXY` | git 联网时强制保留 / 强制清掉环境变量里的代理（都不设则探测：代理连不上才绕开） |
-| `BENCH_LLM_NO_PROXY` | 调模型 API 时不走环境变量里的代理 |
+| `BENCH_ROOT` | Project root (by default derived from the location of `bench/store.py`) |
+| `BENCH_RESULTS_DIR` / `BENCH_CORPUS_SRC` / `BENCH_OBF_DIR` / `BENCH_WORK_DIR` | Results directory, corpus directory, obfuscated-copies directory and temporary work directory (defaults: `results/`, `corpus/src/`, `tmp/obf/` and `tmp/work/` respectively) |
+| `BENCH_SPEC_DIR` | Spec directory (default `corpus/specs/`) |
+| `LIBCLANG_PATH` | The libclang library file |
+| `BENCH_CLANG_INCLUDE` | When libclang cannot find the compiler's built-in headers (stddef.h etc.), explicitly specifies the built-in header directories (separated by `os.pathsep`) |
+| `CORPUS_MIRROR` | Directory holding local clone mirrors; `prepare` copies from it first; if not set, no mirror is used |
+| `CORPUS_GIT_TIMEOUT` | Timeout in seconds for git commands that go online (default 180) |
+| `CORPUS_KEEP_PROXY` / `CORPUS_NO_PROXY` | When git goes online, force keeping / force clearing the proxy from the environment (if neither is set, it probes: the proxy is bypassed only if it cannot be reached) |
+| `BENCH_LLM_NO_PROXY` | Do not use the proxy from the environment when calling the model API |
 
-模型的 API key 只认环境变量（`DEEPSEEK_API_KEY`，见 `PRESETS` 里每个预设的 `api_key_env`），不写进任何文件、日志、缓存或结果。
-只给测试和 CI 用的变量见第 11 节。
+Model API keys are read only from environment variables (`DEEPSEEK_API_KEY`; see the `api_key_env` of each preset in `PRESETS`) and are never written to any file, log, cache or result.
+Variables used only by tests and CI are listed in Section 11.
 
-## 5. 混淆级别
+## 5. Obfuscation levels
 
-高一级包含低一级的全部变换。三类变换都由 `--seed` 决定，同种子同结果（符号混淆的改名表还依赖宿主机的系统头，见第 8 节第 9 条）；
-每个副本都必须通过项目自带测试（verify）。
+Each level includes all the transformations of the levels below it. All three kinds of transformation are determined by `--seed`, so the same seed gives the same result (the rename table of symbol renaming also depends on the host's system headers; see item 9 of Section 8);
+every copy must pass the project's own tests (verify).
 
-| 级别 | 变换 | 要点 |
+| Level | Transformation | Notes |
 |---|---|---|
-| L0 | 原样复制 | 对照组 |
-| L1 | 符号混淆：项目内声明的函数、变量、参数、字段、类型、枚举常量、标签、宏的拼写整体改成不透露原意的 `f_<n>` `t_<n>` `v_<n>` `M_<n>` `m_<n>` | token 级替换，只改标识符 token，不碰字符串字面量与注释；系统头里出现过的拼写、`main`、关键字、第三方框架（`spec.vendored`）、被构建命令用 `-D` 指定的宏（`spec.keep_names`）等一律不改；遇到字符串化宏先非 strict 验证，不过再退回 strict，记录里写明用的哪种，以及非 strict 下被字符串化后仍被改名的拼写个数 |
-| L2 | 结构混淆：`for` 改 `while`、`if/else` 交换分支、复合赋值展开、三目 `return` 改 `if/else`、多声明拆分 | 每个函数体内约 50% 的可用位置；宏生成的语句、宏参数里的位置不动；改完必须能零 error 重新解析 |
-| L3 | 语义混淆：`a < b` 改 `b > a`、De Morgan、`!x` 与 `x == 0` 互换、`a + b` 交换律换序、函数体开头插入 opaque 语句 | 只对无副作用的简单操作数、整型与算术类型下手；同样要零 error 重新解析 |
+| L0 | Verbatim copy | Control group |
+| L1 | Symbol renaming: the spellings of functions, variables, parameters, fields, types, enum constants, labels and macros declared inside the project are all renamed to names that reveal nothing about their meaning: `f_<n>` `t_<n>` `v_<n>` `M_<n>` `m_<n>` | Token-level replacement: only identifier tokens change, and string literals and comments are left alone. Spellings that appear in system headers, `main`, keywords, third-party frameworks (`spec.vendored`), macros specified with `-D` in the build command (`spec.keep_names`) and the like are never renamed. When a stringifying macro is encountered, non-strict verification is tried first and strict is the fallback if it does not pass; the record states which one was used, and in non-strict mode how many spellings were still renamed after being stringified |
+| L2 | Structural rewriting: `for` rewritten as `while`, `if/else` branches swapped, compound assignments expanded, ternary `return` rewritten as `if/else`, multi-declarations split | About 50% of the available sites in each function body; statements generated by macros and positions inside macro arguments are left alone; after the rewrite the file must re-parse with zero errors |
+| L3 | Semantic rewriting: `a < b` rewritten as `b > a`, De Morgan, `!x` and `x == 0` swapped, `a + b` reordered by commutativity, an opaque statement inserted at the start of the function body | Applied only to simple operands without side effects and only to integer and arithmetic types; likewise the file must re-parse with zero errors |
 
-## 6. 数据文件
+## 6. Data files
 
-JSON / JSONL，都带 `schema_version`。阶段产出整份原子重写，可断点续跑的（generations、results）按行追加。
-每条产出带 `inputs`（各输入的内容哈希）与 `input_hash`，幂等判断与 `report` 的校验都靠它；评测相关代码的摘要
-（`bench/provenance.py` 按阶段对源文件内容取哈希）、沙箱镜像 ID 和资源上限也在其中，换了镜像或改了评测代码，旧结果会被判为过期。
+JSON / JSONL, all carrying `schema_version`. Stage outputs are rewritten atomically as a whole; those that can be resumed from a checkpoint (generations, results) are appended line by line.
+Every output carries `inputs` (the content hash of each input) and `input_hash`, on which the idempotency check and the validation in `report` both rely; a digest of the evaluation-related code
+(`bench/provenance.py` hashes the content of the source files per stage), the sandbox image ID and the resource limits are included as well, so if the image is replaced or the evaluation code is changed, old results are judged stale.
 
-| 文件 | 内容 |
+| File | Contents |
 |---|---|
-| `results/prepare-<corpus>.json` | 源码树哈希、沙箱里构建与测试的结果 |
-| `results/coverage-<corpus>.json` | 每个函数的执行次数 |
-| `results/targets-<corpus>.jsonl` | 入选目标：FunctionTarget 全字段 + `exec_count` + `stub_killed` + `stub_kill_mode`（test_fail / runtime_crash / runtime_timeout） |
-| `results/targets-<corpus>.summary.json` | 提取数、候选数、各排除原因的计数与 target_id（含 stub-kill 存活数、各目标的 stub-kill 判定） |
-| `results/obf-<corpus>-<level>.json` | `rename_map`、`stats`、verify 结果、oracle gate 结果（检查了哪些目标、过了哪些）、副本源码树哈希、宿主 libclang 环境摘要 |
-| `results/descriptions.jsonl` | `target_id`、功能规格、生成模型、泄漏重试次数、`failed`、放行词命中、词组警告、泄漏检查器摘要 |
-| `results/tasks.jsonl` | Task 全字段（提示词的全部输入）与消息哈希 |
-| `results/generations-<model>.jsonl` | `task_id`、`sample_idx`、回复文本、token 用量、是否命中缓存、延迟、温度 / max_tokens / seed、模型指纹、输入哈希 |
-| `results/generation-failures-<model>.jsonl` | 重试用尽仍失败的生成调用（task_id、sample_idx、原因）；之后补成功了会从这里删掉 |
-| `results/results-<tag>.jsonl` | EvalResult + `category` + `detail` + `similarity` + 回复规范性问题 + 输入哈希 |
-| `results/completeness-<tag>.json` | 每个（模型, 级别, 语料）应有多少样本、评测了多少、缺多少（生成失败 / 没生成 / 回复过期） |
-| `results/mutants-<corpus>-<level>.jsonl` | mutate 选定的变异体，每个出了题的（目标, 级别）一行：`target_id`、`level`、`operator`、`site_index`、`original_text`、`mutated_text`、`mutant_code`（变异后的完整函数，已去注释）、`kill_mode`、`kill_recheck`（复核时的归因）、`tried_sites`、`equivalent_count`、`compile_fail_count`、`parse_fail_count`、`unstable_count`、`same_operator_as_L0`、`same_site_as_L0`、`anchor`（L0 位点在本级的去向）、`context_orphans`（提示词上下文里因缺陷而多余的名字）、输入哈希 |
-| `results/mutants-<corpus>.summary.json` | mutate 的汇总：各级的输入哈希、出题数、放弃数及原因、算子与杀死方式分布、`same_operator_as_L0` / `same_site_as_L0` 比例、记账（含复核）、各类变异体占的沙箱时间、耗时，以及四级都出了题 / 四级同算子 / 四级同位点的目标数 |
-| `results/mutants-<corpus>.check.json` | `check-mutants` 的回放结果：回放了多少、仍被杀死多少、杀死方式有没有变、有没有回放通过的（不合格）、去注释的原函数有没有通过 |
-| `results/tasks-repair.jsonl`、`results/generations-repair-<model>.jsonl`、`results/generation-failures-repair-<model>.jsonl` | 缺陷修复任务的任务、回复和失败的调用：结构与生成任务的对应文件一致，多 `task` 与 `mutation` 字段 |
-| `results/results-repair-<tag>.jsonl`、`results/completeness-repair-<tag>.json` | 缺陷修复任务的评测结果与完整性记录：多 `task`、`mutation`、`kill_mode`、`unchanged`、`restored`、`same_operator_as_L0`、`same_site_as_L0`、`context_orphans` |
-| `results/usage.jsonl` | 每次真实 API 调用的 token 用量（命中缓存的不记） |
-| `results/cache/` | LLM 回复缓存，键为 sha256(模型, 端点, messages, temperature, max_tokens, seed)，被 `.gitignore` 忽略 |
-| `results/summary-<tag>.md` / `.csv`、`fig-<tag>.svg` | `report` 的输出 |
-| `results/bench-error.log` | 未预期故障的完整堆栈（追加写） |
+| `results/prepare-<corpus>.json` | Source-tree hash, results of building and testing in the sandbox |
+| `results/coverage-<corpus>.json` | Execution count of each function |
+| `results/targets-<corpus>.jsonl` | Selected targets: all FunctionTarget fields + `exec_count` + `stub_killed` + `stub_kill_mode` (test_fail / runtime_crash / runtime_timeout) |
+| `results/targets-<corpus>.summary.json` | Number extracted, number of candidates, the count and target_id for each exclusion reason (including the number of stub-kill survivors and each target's stub-kill verdict) |
+| `results/obf-<corpus>-<level>.json` | `rename_map`, `stats`, verify results, oracle gate results (which targets were checked and which passed), the copy's source-tree hash, a digest of the host's libclang environment |
+| `results/descriptions.jsonl` | `target_id`, functional specification, generating model, number of leak retries, `failed`, allow-list hits, phrase warnings, a digest of the identifier-leak checker |
+| `results/tasks.jsonl` | All Task fields (the complete inputs of the prompt) and the message hash |
+| `results/generations-<model>.jsonl` | `task_id`, `sample_idx`, reply text, token usage, whether the cache was hit, latency, temperature / max_tokens / seed, model fingerprint, input hash |
+| `results/generation-failures-<model>.jsonl` | Generation calls that still failed after retries were used up (task_id, sample_idx, reason); if a call later succeeds, it is deleted from here |
+| `results/results-<tag>.jsonl` | EvalResult + `category` + `detail` + `similarity` + reply conformance issues + input hash |
+| `results/completeness-<tag>.json` | For each (model, level, corpus), how many samples there should be, how many were evaluated and how many are missing (generation failed / not generated / reply stale) |
+| `results/mutants-<corpus>-<level>.jsonl` | The mutants chosen by mutate, one line per (target, level) that had a problem set: `target_id`, `level`, `operator`, `site_index`, `original_text`, `mutated_text`, `mutant_code` (the complete mutated function, comments stripped), `kill_mode`, `kill_recheck` (the attribution at re-check), `tried_sites`, `equivalent_count`, `compile_fail_count`, `parse_fail_count`, `unstable_count`, `same_operator_as_L0`, `same_site_as_L0`, `anchor` (where the L0 site ended up at this level), `context_orphans` (names in the prompt context made superfluous by the defect), input hash |
+| `results/mutants-<corpus>.summary.json` | Summary of mutate: the input hash of each level, number of problems set, number given up and the reasons, distribution of operators and kill modes, the share of `same_operator_as_L0` / `same_site_as_L0`, accounting (re-checks included), sandbox time taken by each kind of mutant, elapsed time, and the number of targets with problems set at all four levels / the same operator at all four levels / the same site at all four levels |
+| `results/mutants-<corpus>.check.json` | Replay results of `check-mutants`: how many were replayed, how many are still killed, whether the kill mode changed, whether any replay passed (a failure), and whether the comment-stripped original functions passed |
+| `results/tasks-repair.jsonl`, `results/generations-repair-<model>.jsonl`, `results/generation-failures-repair-<model>.jsonl` | The tasks, replies and failed calls of the bug-repair task: same structure as the corresponding generation-task files, with the extra `task` and `mutation` fields |
+| `results/results-repair-<tag>.jsonl`, `results/completeness-repair-<tag>.json` | Evaluation results and completeness records of the bug-repair task, with the extra `task`, `mutation`, `kill_mode`, `unchanged`, `restored`, `same_operator_as_L0`, `same_site_as_L0`, `context_orphans` |
+| `results/usage.jsonl` | Token usage of each real API call (cache hits are not recorded) |
+| `results/cache/` | LLM reply cache, keyed by sha256(model, endpoint, messages, temperature, max_tokens, seed); ignored by `.gitignore` |
+| `results/summary-<tag>.md` / `.csv`, `fig-<tag>.svg` | Output of `report` |
+| `results/bench-error.log` | Full stack traces of unexpected failures (appended) |
 
-## 7. 可信度措施
+## 7. Credibility measures
 
-| 措施 | 做法 | 自测 |
+| Measure | How | Self-test |
 |---|---|---|
-| oracle gate | 每个混淆副本先整体 verify；再用混淆后的原函数文本对每个目标走一遍完整 evaluate，必须 pass，不过的副本或目标作废并计数；结果记下检查过哪些目标，出题时逐个核对，gate 对着另一份目标集 / 副本跑的一律报错 | `tests/test_e2e_mock.py`、`tests/test_integrity.py` |
-| stub-kill | 目标函数换成「返回零值 / 空函数体」的桩后项目测试必须失败，否则不入选；存活数写进报告；杀死方式（test_fail / runtime_crash / runtime_timeout）逐目标记录，报告按杀死方式分层给通过率 | `tests/test_targets.py` |
-| 硬性约束 | 提示词禁止调用 exit / abort / system 等、禁止联网和汇编、禁止定义宏；`postprocess` 用 libclang 扫候选代码，这些以及会绕过判据的写法（构造函数属性、`#undef` / `#pragma`）一律直接记 `policy_violation`，不进沙箱；每个语料的通过判据除了退出码，还要求测试输出里出现完成标志（汇总行或固定行，必要时限定出现次数），提前 `exit(0)` 过不了 | `tests/test_postprocess.py`、`tests/test_corpus.py`、`tests/test_integrity.py` |
-| MockLLM 三模式 e2e | oracle 100% pass、broken 100% compile_syntax、wrong 不通过且归因与 stub-kill 一致；缺陷修复任务另有 unchanged 模式（原样返回变异体，一个都不能通过、`unchanged` 为真）、reformat 模式（原函数换排版加注释，必须通过且 `restored`）和 touched 模式（变异体加一条无害语句，不能通过，`unchanged` 与 `restored` 都为假），oracle 模式还要 `restored`；再加 `check-mutants` 回放 | `tests/test_e2e_mock.py` |
-| 变异体 kill 检查 | 缺陷修复任务的每个变异体当作候选走一遍完整 evaluate，编译通过且在测试阶段失败才出题，判为杀死的再评测一次、第二次仍失败才出题；改写后重新解析不能多出新 error；去注释后的原函数先验证（不通过就不搜索）；mutate 的输入哈希含 oracle gate、副本、种子、`--max-tries`、是否复核、相关代码、沙箱和宿主 libclang，使用前（出题、report）把这些再逐项重算核对一遍，对不上直接报错；`check-mutants` 可以随时回放复核；`unchanged` 的候选却通过了测试的题整题剔除并点名 | `tests/test_mutate.py`、`tests/test_repair_pipeline.py`、`tests/test_repair_report.py` |
-| 描述泄漏检查 | 功能规格里不得出现任何项目标识符（含 L0 真名）：单词边界精确匹配 + 忽略大小写 / 分隔符的规范化匹配 + 词组警告；常见英文词表放行，放行命中如实记录；出题时用当前检查器重新检查一遍；泄漏则带着清单重新生成，最多 3 次，仍泄漏的目标排除 | `tests/test_describe.py` |
-| 全链路确定性 | seed 固定则目标集、改名表（同一台宿主机上）、变换位置、提示词完全一致；LLM 调用 temperature=0 并带缓存 | 各模块的测试 |
-| 输入哈希校验 | 结果文件自带源码树、spec（只含影响构建与测试的字段）、prompt 模板、回复、oracle gate、评测代码、沙箱镜像的哈希；`report` 对照 tasks / generations / 副本 / gate 逐条校验，对不上的记录排除并在报告里列出原因 | `tests/test_e2e_mock.py`、`tests/test_integrity.py` |
-| 不静默丢样本 | 生成调用失败单独落盘，`evaluate` 写完整性记录，报告里标「不完整」，命令返回非零（`--allow-missing` 放行）；结果文件的坏行同样计数 | `tests/test_integrity.py` |
-| 用语与路径检查 | 违例用语、本机绝对路径、README 与实现（环境变量、命令行选项、模块、局限、数据文件）是否一致，全仓库统一检查 | `tests/test_hygiene.py` |
+| oracle gate | Each obfuscated copy is first verified as a whole; then a complete evaluate is run on every target with the obfuscated original function text, and it must pass. A copy or target that does not pass is voided and counted. The result records which targets were checked, and they are re-checked one by one when problems are set; a gate that was run against a different target set / copy is always reported as an error | `tests/test_e2e_mock.py`, `tests/test_integrity.py` |
+| stub-kill | After the target function is replaced by a stub that "returns a zero value / has an empty function body", the project tests must fail, otherwise the target is not selected. The number of survivors is written into the report; the kill mode (test_fail / runtime_crash / runtime_timeout) is recorded per target, and the report stratifies pass rates by kill mode | `tests/test_targets.py` |
+| Hard constraints | The prompt forbids calling exit / abort / system and the like, forbids network access and inline assembly, and forbids defining macros. `postprocess` scans the candidate code with libclang, and these as well as constructs that would bypass the pass criterion (constructor attributes, `#undef` / `#pragma`) are recorded straight away as `policy_violation` and never enter the sandbox. Besides the exit code, the pass criterion of each corpus also requires a completion marker in the test output (a summary line or a fixed line, with the number of occurrences pinned down where necessary), so an early `exit(0)` does not pass | `tests/test_postprocess.py`, `tests/test_corpus.py`, `tests/test_integrity.py` |
+| MockLLM three-mode e2e | oracle 100% pass, broken 100% compile_syntax, wrong does not pass and its attribution agrees with stub-kill. The bug-repair task additionally has an unchanged mode (returns the mutant as is; none may pass and `unchanged` must be true), a reformat mode (the original function reformatted with comments added; it must pass and be `restored`) and a touched mode (the mutant plus one harmless statement; it must not pass, and `unchanged` and `restored` must both be false); the oracle mode must also be `restored`; plus the `check-mutants` replay | `tests/test_e2e_mock.py` |
+| Mutant kill check | Each mutant of the bug-repair task is taken as a candidate and put through a complete evaluate; a problem is set only if it compiles and fails in the test stage, and a mutant judged killed is evaluated once more and the problem is set only if it fails again. The re-parse after rewriting must not produce any new error; the comment-stripped original function is verified first (if it does not pass, no search is done). The input hash of mutate covers the oracle gate, the copies, the seed, `--max-tries`, whether the re-check is on, the relevant code, the sandbox and the host libclang; before use (problem setting, report) these are recomputed and compared item by item, and a mismatch is an immediate error; `check-mutants` can replay the re-check at any time; a problem whose `unchanged` candidate nevertheless passes the tests is dropped as a whole and named | `tests/test_mutate.py`, `tests/test_repair_pipeline.py`, `tests/test_repair_report.py` |
+| Identifier-leak check on descriptions | The functional specification must not contain any project identifier (including the real L0 names): exact matching on word boundaries + normalized matching that ignores case / separators + phrase warnings; a list of common English words is let through, and allow-list hits are recorded as they are; the check is run again with the current checker when problems are set; on a leak the specification is regenerated with the list of leaked identifiers, at most 3 times, and a target that still leaks is excluded | `tests/test_describe.py` |
+| End-to-end determinism | With a fixed seed, the target set, the rename table (on the same host), the transformation sites and the prompts are exactly the same; LLM calls use temperature=0 and are cached | Tests of the individual modules |
+| Input-hash validation | Result files carry hashes of the source tree, the spec (only the fields that affect building and testing), the prompt template, the reply, the oracle gate, the evaluation code and the sandbox image; `report` validates record by record against tasks / generations / copies / gate, and records that do not match are excluded, with the reasons listed in the report | `tests/test_e2e_mock.py`, `tests/test_integrity.py` |
+| No silent loss of samples | Failed generation calls are written to disk separately, `evaluate` writes a completeness record, the report is marked "incomplete" (「不完整」 in the Chinese-language report) and the command returns non-zero (`--allow-missing` lets it through); bad lines in result files are counted likewise | `tests/test_integrity.py` |
+| Wording and path checks | Banned terms, absolute paths of the local machine, and whether the README agrees with the implementation (environment variables, command-line options, modules, limitations, data files), checked uniformly across the whole repository | `tests/test_hygiene.py` |
 
-## 8. 局限
+## 8. Limitations
 
-如实写在这里，读结果时请对照（与报告的「局限」一节同一份内容，由 `bench/limitations.py` 单点维护，`tests/test_hygiene.py` 检查两边一致）：
+Stated here plainly; please consult them when reading the results (this is the same content as the "Limitations" section of the report, maintained at a single point in `bench/limitations.py`, with `tests/test_hygiene.py` checking that the two agree):
 
-1. **功能规格由 LLM 生成。** 规格歧义会抬高所有级别的失败率，所以 L0 通过率只是上限参考；规格里不含标识符是靠泄漏检查保证的，检查口径是单词边界精确匹配加忽略大小写 / 分隔符的规范化匹配，再加常见英文词表放行（放行命中如实记在描述记录里），不是语义层面的保证。
-2. **语料是知名小库。** L0 下模型可能已经见过这些代码，这正是设置混淆对照的意义；但 9 个库的流行程度不同，不能把单个库上的差异直接当成记忆的证据，要看 L0 → L1 的相似度与通过率变化是否一致。
-3. **只测 C。** 结论不外推到其它语言；构建与测试都是 gcc 13 + 各库自带的测试。
-4. **单函数粒度。** 一次只替换一个函数，目标函数以外的代码是原样的（混淆过的）项目代码；不评测多文件新增功能。
-5. **测试强度依赖各库自带测试。** stub-kill 只保证「零值桩会被测试抓住」，也就是测试不是空的，不保证测试能抓住所有逻辑错误：通过测试的生成结果仍可能有测试没覆盖到的错误，通过率会被高估。其中一部分目标是被「桩让测试程序崩溃或超时」杀死的（runtime_crash / runtime_timeout），它们的测试并没有断言函数返回了什么，任何不崩溃的错误实现都能通过；报告里按杀死方式分层给出通过率，读结果时优先看 test_fail 型目标。
-6. **结构与语义变换覆盖的语法子集有限。** 宏生成的语句、宏参数里的位置、被 #if 劈开的位置、带函数调用的复合赋值等一律不动，宏用得重的库（parson、cJSON 的 Unity 断言宏、vec）实际改动的位置明显少于理论候选数；#if 里未生效的分支、spec.cflags 没有打开的条件编译块里的函数体也不会被改。
-7. **L1 / L2 / L3 共用同一批回复。** L2 / L3 只改函数体，而提示词里没有函数体，所以 L1、L2、L3 的提示词逐字相同、temperature=0 时模型回复也相同、共用同一个缓存键。L2 / L3 衡量的是「生成的函数放回被结构、语义混淆过的项目后，是否仍能编译并通过测试」，以及相似度指标上的差异，不是模型对混淆过的函数体的理解力；只有 L0 与 L1 的差异能反映模型行为（提示词里的名字不同）。要让 L2 / L3 改变模型看到的内容，需要在设计上另做安排（例如把被调函数的函数体放进上下文）。缺陷修复任务就是这样一种安排：它的提示词里放的是混淆后的函数体，L2 / L3 的输入与 L1 不同。
-8. **OOM 与超时的归因随负载抖动。** 符号混淆只改名字，注释和字符串里仍是原名，所以提示词里不放源码注释；并发评测受本机 CPU 与内存限制（每个沙箱容器 1 个 CPU、至多 1 GB），同时跑的语料不宜过多；会无限分配内存的生成结果，超时（各语料取 30 s）和 1 GB 内存上限谁先到取决于机器负载：前者归 runtime_timeout，后者被 OOM 杀死（rc=137，没有超时标记），按规则归 test_fail，所以这类样本的归因在不同负载下可能不同。
-9. **符号混淆的改名表依赖宿主机的系统头。** 符号混淆用宿主机上的 libclang 解析，系统头里声明过的拼写一律不改名；宿主机的 libc 头与借来的编译器内置头目录与沙箱里 gcc:13 的并不相同，所以换一台机器或升级系统后，同一个 seed 的改名表可能不同。混淆结果的输入哈希里带了宿主 libclang 环境的摘要，环境变了旧副本会被判定为过期。
-10. **缺陷修复任务的变异体是人工注入的单点缺陷。** 它们不等于真实缺陷的分布；不同级别的变异体不一定是同一个缺陷。mutate 让 L1–L3 先试 L0 选定的位点在本级的对应位点，L1 只改名字，位点一一对应，这一步是精确的；L2 / L3 改写了函数体，靠记号对齐，位点的记号被改掉的退回到只复用算子。报告里的「可比子集」只含四级是同一个位点、提示词上下文又没有被裁条目的目标，只有它上面的级别差异才不混入缺陷位置的差异；「四级同算子」的目标子集恒等于全集（复用算子保证了这一点），不是对照。
-11. **缺陷修复任务不给测试输出。** 难度高于真实场景中的修复，通过率的绝对值不可与其它基准比较，只看级别间的差异。
-12. **崩溃型与超时型杀死的修复任务，测试可能不检查返回内容。** 修复后只要不崩溃、不超时就可能通过，与生成任务相同的局限。报告给两个口径的分层：变异体怎么死的（kill_mode，这个具体缺陷让断言失败，还是让测试程序崩溃或挂起），和目标被零值桩杀死的方式（stub_kill_mode，测试有没有断言返回内容）；两者不等价，读结果时两张表都要看，优先看 test_fail 型。
-13. **修复任务的提示词上下文被裁剪过。** 依赖上下文原本取自原函数，缺陷删掉的调用、宏、全局还留在里面会泄漏答案线索，所以出题时按注入缺陷后的函数重新裁剪（只裁原型、宏和全局变量，类型定义不裁）。被裁掉条目的题，修复它可能需要提示词里没有的名字，难度来自信息缺口而不是混淆，不进可比子集，通过率单独成表。
-14. **修复任务的相似度和 restored 率不是记忆指标。** 提示词里本来就是只差一处的原函数，候选只要没大改，相似度天然接近 1；单点缺陷的任何正确修复都逐字等于原函数，restored 约等于通过，与 L0 凭记忆还原无法区分。修复任务回答的问题要看级别之间通过率的变化。
-15. **NEG 缺陷的显眼程度随级别变化。** NEG 的改写固定是 !(c)：L0 / L1 的代码里这种写法几乎不出现，缺陷一眼可见；L2 的 if / else 交换会让代码自带这种写法，缺陷被掩盖。NEG 题的难度随级别变化有一部分与混淆想测的因素无关，读按算子分层的表时要单独看这一行。
-16. **字符串字面量里的项目词汇去不掉。** 改字面量会改变行为，所以 L1 以上的变异体函数文本里，字符串和字符常量里的项目词汇（错误提示里的函数名之类）原样留着；目标函数自己的原名出现在字面量里的题出题时作废（name_in_literal），其余只能如实统计。
+1. **The functional specifications are generated by an LLM.** Ambiguity in a specification raises the failure rate at every level, so the L0 pass rate serves only as a reference for the upper bound; that a specification contains no identifiers is ensured by the identifier-leak check, whose criterion is exact matching on word boundaries plus normalized matching that ignores case / separators, plus a list of common English words that is let through (allow-list hits are recorded as they are in the description records); it is not a guarantee at the semantic level.
+2. **The corpora are well-known small libraries.** At L0 the model may well have seen this code, which is exactly why the obfuscated controls exist; but the 9 libraries differ in popularity, so a difference on a single library cannot be taken directly as evidence of memorization: check whether the L0 → L1 changes in similarity and pass rate are consistent.
+3. **C only.** The conclusions are not extrapolated to other languages; builds and tests are all gcc 13 plus each library's own tests.
+4. **Single-function granularity.** Only one function is replaced at a time; all code outside the target function is the project's own code as it was (obfuscated at the corresponding level); multi-file feature additions are not evaluated.
+5. **Test strength depends on each library's own tests.** stub-kill only guarantees that "a zero-value stub is caught by the tests", i.e. that the tests are not empty; it does not guarantee that the tests catch every logic error: a generated function that passes the tests may still contain errors the tests do not cover, so pass rates are overestimated. Some of the targets were killed because "the stub made the test program crash or time out" (runtime_crash / runtime_timeout); their tests do not assert what the function returns, so any wrong implementation that does not crash passes. The report gives pass rates stratified by kill mode; when reading the results, look at test_fail targets first.
+6. **The structural and semantic transformations cover only a limited subset of the syntax.** Statements generated by macros, positions inside macro arguments, positions split by #if, compound assignments containing function calls and the like are never touched, so for libraries that use macros heavily (parson, cJSON's Unity assertion macros, vec) the sites actually changed are clearly fewer than the theoretical candidates; function bodies in branches of #if that are not active, or in conditional-compilation blocks that spec.cflags does not enable, are not changed either.
+7. **L1 / L2 / L3 share the same set of replies.** L2 / L3 change only function bodies, and the prompt contains no function body, so the L1, L2 and L3 prompts are word-for-word identical, the model's replies at temperature=0 are identical too, and they share one cache key. What L2 / L3 measure is "whether the generated function, once put back into a project that has been structurally and semantically obfuscated, still compiles and passes the tests", plus the differences in the similarity metric; it is not the model's understanding of obfuscated function bodies. Only the difference between L0 and L1 reflects model behavior (the names in the prompt differ). To make L2 / L3 change what the model sees, the design would need a different arrangement (for example putting the bodies of the called functions into the context). The bug-repair task is such an arrangement: its prompt contains the obfuscated function body, so its L2 / L3 inputs differ from L1.
+8. **The attribution of OOM and timeouts fluctuates with load.** Symbol renaming changes only names, and comments and strings still carry the original names, so no source comments are put in the prompts; concurrent evaluation is limited by the local CPU and memory (each sandbox container gets 1 CPU and at most 1 GB), so not too many corpora should run at the same time; for a generated function that allocates memory without bound, which comes first, the timeout (30 s for every corpus) or the 1 GB memory limit, depends on machine load: the former is attributed to runtime_timeout, while the latter is OOM-killed (rc=137, no timeout marker) and by the rules attributed to test_fail, so the attribution of such samples can differ under different loads.
+9. **The rename table of symbol renaming depends on the host's system headers.** Symbol renaming parses with the libclang on the host, and spellings declared in system headers are never renamed; the host's libc headers and the borrowed compiler built-in header directory are not the same as those of gcc:13 in the sandbox, so after switching machines or upgrading the system, the same seed may produce a different rename table. The input hash of the obfuscation result carries a digest of the host's libclang environment, and if the environment changes, old copies are judged stale.
+10. **The mutants of the bug-repair task are artificially injected single-point defects.** They do not match the distribution of real defects, and the mutants at different levels are not necessarily the same defect. mutate makes L1–L3 try first the site at their own level that corresponds to the site L0 chose; L1 changes only names, so the sites correspond one to one and this step is exact; L2 / L3 rewrite the function body and align by token, and a site whose tokens were rewritten falls back to reusing the operator only. The "comparable subset" in the report contains only targets that have the same site at all four levels and no pruned entries in the prompt context, and only the level differences on that subset are free of differences in the defect location; the "same operator at all four levels" subset of targets is always equal to the full set (reusing the operator guarantees this) and is not a control.
+11. **The bug-repair task gives no test output.** It is harder than repair in real settings; the absolute pass rates cannot be compared with other benchmarks, so look only at the differences between levels.
+12. **For repair problems killed by a crash or a timeout, the tests may not check the returned content.** After the repair, the code may pass as long as it neither crashes nor times out, the same limitation as in the generation task. The report gives two stratifications: how the mutant died (kill_mode: whether this particular defect makes an assertion fail or makes the test program crash or hang), and how the target is killed by the zero-value stub (stub_kill_mode: whether the tests assert on the returned content); the two are not equivalent, so read both tables, and look at test_fail first.
+13. **The prompt context of the repair task has been pruned.** The dependency context was originally taken from the original function, and calls, macros and globals that the defect deleted would remain in it and leak a clue to the answer, so it is re-pruned against the function with the defect injected when problems are set (only prototypes, macros and global variables are pruned; type definitions are not). For a problem with pruned entries, repairing it may need names that are not in the prompt; its difficulty comes from an information gap rather than from obfuscation, so it is left out of the comparable subset, and its pass rate gets a table of its own.
+14. **Similarity and the restored rate in the repair task are not memorization metrics.** The prompt already contains the original function with a difference in only one place, so as long as the candidate is not heavily rewritten, its similarity is naturally close to 1; any correct fix of a single-point defect is word for word equal to the original function, so restored is roughly equal to passing and cannot be distinguished from L0 recalling the function from memory. The question the repair task answers has to be read from how the pass rate changes between levels.
+15. **How conspicuous a NEG defect is varies with the level.** The NEG rewrite is always !(c): this form almost never occurs in L0 / L1 code, so the defect is obvious at a glance; the if / else swap at L2 makes the code contain this form on its own, so the defect is masked. Part of the way NEG difficulty changes with the level has nothing to do with the factor the obfuscation is meant to test, so look at this row separately when reading the table stratified by operator.
+16. **Project vocabulary inside string literals cannot be removed.** Changing a literal would change behavior, so in the mutant function text at L1 and above, project vocabulary inside strings and character constants (such as function names in error messages) is left as it is; a problem whose target function's own original name appears in a literal is voided when it is set (name_in_literal), and the rest can only be tallied and reported as they are.
 
-## 9. 实验结果
+## 9. Experiment results
 
-数据截至 2026-10-28。完整表格见 `results/summary-v2.md`（逐样本记录 `results/results-v2.jsonl` 与 `results/results-repair-v2.jsonl`），解读见 [`docs/实验结果.md`](docs/实验结果.md)。入选目标 208 个；规格生成任务里 11 个目标的功能规格重试后仍泄漏项目标识符而作废，进入统计 197 个；缺陷修复任务有 3 题因目标自己的原名出现在字符串字面量里作废，L0 208 题、L1–L3 各 207 题。temperature 0、pass@1。
+Data as of 2026-10-28. The full tables are in `results/summary-v2.md` (per-sample records in `results/results-v2.jsonl` and `results/results-repair-v2.jsonl`); for interpretation see [`docs/实验结果.md`](docs/实验结果.md). 208 targets were selected. In the spec-generation task, the functional specifications of 11 targets still leaked project identifiers after retries and were voided, leaving 197 in the statistics; in the bug-repair task, 3 problems were voided because the target's own original name appears in a string literal, leaving 208 problems at L0 and 207 at each of L1–L3. temperature 0, pass@1.
 
-### 规格生成任务：模型 × 混淆级别（通过率 = 替换回项目后项目自带测试全过）
+### Spec-generation task: model × obfuscation level (pass rate = all of the project's own tests pass after the function is put back into the project)
 
-| 模型 | L0 | L1 | L2 | L3 | L0→L1 配对差 | McNemar p |
+| Model | L0 | L1 | L2 | L3 | L0→L1 paired difference | McNemar p |
 |---|---:|---:|---:|---:|---:|---:|
 | deepseek-flash | 85.3% | 49.2% | 48.7% | 49.2% | −36.0 pp | < 0.001 |
 | deepseek-v4-pro | 80.2% | 51.3% | 50.8% | 50.8% | −28.9 pp | < 0.001 |
 | deepseek-flash-thinking | 90.4% | 69.0% | 71.1% | 70.6% | −21.3 pp | < 0.001 |
 
-L1 只把项目里的标识符（含测试文件）统一改成无意义符号，功能规格与签名类型不变；L2 / L3 的变换发生在模型看不到的函数体里，所以与 L1 几乎相同（见局限 7）。候选与原函数的相似度（标识符已归一）flash 0.825 → 0.701、v4-pro 0.776 → 0.714、thinking 0.845 → 0.802。thinking 在 L1 有 10.7% 的回复推理到 32k token 上限被截断，按失败计，69.0% 是下限。
+L1 renames all identifiers in the project (test files included) uniformly to meaningless symbols, leaving the functional specification and the types in the signature unchanged; the L2 / L3 transformations happen inside function bodies the model cannot see, so they come out almost the same as L1 (see limitation 7). Similarity between the candidate and the original function (identifiers normalized): flash 0.825 → 0.701, v4-pro 0.776 → 0.714, thinking 0.845 → 0.802. At L1, 10.7% of thinking's replies were truncated when their reasoning hit the 32k-token limit and are counted as failures, so 69.0% is a lower bound.
 
-### 缺陷修复任务：可比子集（150 个目标，四级是同一个缺陷且提示词上下文未被裁剪）
+### Bug-repair task: comparable subset (150 targets; the same defect at all four levels and no pruning of the prompt context)
 
-| 模型 | L0 | L1 | L2 | L3 | L0→L1 | L0→L3 | unchanged 率（L1） |
+| Model | L0 | L1 | L2 | L3 | L0→L1 | L0→L3 | unchanged rate (L1) |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | deepseek-flash | 92.7% | 70.7% | 70.7% | 72.0% | −22.0 pp | −20.7 pp | 6.0% |
 | deepseek-v4-pro | 92.7% | 66.7% | 64.0% | 57.3% | −26.0 pp | −35.3 pp | 18.0% |
-| deepseek-flash-thinking | 96.0% | 90.7% | 90.7% | 82.0% | −5.3 pp（p = 0.057） | −14.0 pp | 0.0% |
+| deepseek-flash-thinking | 96.0% | 90.7% | 90.7% | 82.0% | −5.3 pp (p = 0.057) | −14.0 pp | 0.0% |
 
-全集（L0 208 题、其余各 207 题）：flash 85.6% / 63.8% / 65.2% / 63.8%，v4-pro 83.2% / 59.9% / 58.5% / 52.7%，thinking 89.9% / 80.7% / 83.1% / 75.8%。unchanged = 模型把带缺陷的函数原样返回。thinking 在修复任务上有 6% 到 13% 的回复推理到 32k token 上限被截断（extract_fail），按失败计，它的通过率是下限。
+Full set (L0 208 problems, 207 for each of the other levels): flash 85.6% / 63.8% / 65.2% / 63.8%, v4-pro 83.2% / 59.9% / 58.5% / 52.7%, thinking 89.9% / 80.7% / 83.1% / 75.8%. unchanged = the model returned the defective function as is. On the repair task, 6% to 13% of thinking's replies were truncated when their reasoning hit the 32k-token limit (extract_fail) and are counted as failures, so its pass rate is a lower bound.
 
-报告开头逐条说明两类任务的输入差异：
+The start of the report spells out, point by point, how the inputs of the two tasks differ:
 
-* 生成任务（generate）：模型拿到依赖声明、目标函数的签名和 LLM 写的功能规格，没有函数体，要写出整个函数；L1 / L2 / L3 的提示词逐字相同，只有 L0 与 L1 的差异能反映模型行为。
-* 缺陷修复任务（repair）：模型拿到依赖声明和该级副本里注入了一处缺陷的完整函数（已去掉注释），没有功能规格、没有测试输出、不说明缺陷在哪，要返回修正后的完整函数；混淆作用在模型读到的函数体上，L2 / L3 的输入与 L1 不同，四个级别都能反映模型行为。
-* 两类任务的题型不同、测试对它们的灵敏度也不同，通过率的绝对值不能直接比较，要看各自在级别之间的变化：生成任务回答「写函数是否依赖记忆」，修复任务回答「读懂并修好函数是否依赖表面形态」。
+* Generation task (generate): the model gets the dependency declarations, the target function's signature and a functional specification written by an LLM, with no function body, and has to write the whole function; the L1 / L2 / L3 prompts are word-for-word identical, so only the difference between L0 and L1 reflects model behavior.
+* Bug-repair task (repair): the model gets the dependency declarations and the complete function with one defect injected in that level's copy (comments stripped), with no functional specification, no test output and no statement of where the defect is, and has to return the corrected complete function; the obfuscation acts on the function body the model reads, so the L2 / L3 inputs differ from L1 and all four levels reflect model behavior.
+* The two tasks have different problem types, and the tests are not equally sensitive to them, so absolute pass rates cannot be compared directly; look at how each changes between levels: the generation task answers "does writing a function depend on memorization?", and the repair task answers "does understanding and fixing a function depend on its surface form?".
 
-### 读法
+### How to read the results
 
-1. 两类任务上，去掉标识符后三个模型都下降；修复任务里 v4-pro 在 L2、L3 继续下降，对结构与语义改写比 flash 敏感；开思考的 flash 在修复任务上几乎补平了改名的损失（可比子集 −5.3 pp，McNemar p = 0.057），但语义改写（L3）仍显著下降 14 个百分点。
-2. flash 在原名下领先 v4-pro（生成任务 +5.1 pp），改名后反落后（−2.1 pp）：原名下的优势来自记忆。
-3. 越知名的库下降越大（生成任务 flash：tiny-regex-c −62.5、mpc −55.1、cJSON −42.2 pp；vec、inih 不降）。
-4. 成本：全部实验约 66 元（账户余额 89 → 23 元），其中 thinking 两类任务合计约 49 元。
+1. On both tasks, all three models drop once identifiers are removed; in the repair task v4-pro keeps dropping at L2 and L3, so it is more sensitive to structural and semantic rewriting than flash; flash with thinking enabled almost recovers the loss from renaming on the repair task (comparable subset −5.3 pp, McNemar p = 0.057), but still drops significantly, by 14 percentage points, under semantic rewriting (L3).
+2. With the original names, flash leads v4-pro (+5.1 pp on the generation task); after renaming it falls behind instead (−2.1 pp): the advantage under the original names comes from memorization.
+3. The more well-known the library, the larger the drop (generation task, flash: tiny-regex-c −62.5, mpc −55.1, cJSON −42.2 pp; vec and inih do not drop).
+4. Cost: about 66 yuan for all experiments (account balance 89 → 23 yuan), of which thinking accounts for about 49 yuan across the two tasks.
 
-## 10. 目录结构
+## 10. Directory layout
 
 ```
 bench/
-  __init__.py __main__.py         包入口（Python 版本检查）、python3 -m bench
-  vocab.py limitations.py provenance.py  共用词表（级别 / 回复问题 / 归因类别）、局限列表（README 与报告共用）、代码与沙箱摘要
-  corpus.py sandbox.py clangcfg.py  语料 spec 与源码准备、Docker 沙箱、libclang 配置（解析参数的唯一出口）
-  extract.py coverage.py targets.py  函数提取与依赖闭包、执行次数、目标选择与 stub-kill
-  mutate.py                       缺陷修复任务的八个变异算子（找位点、改写）、跨级别的同一个位点（记号对齐）与变异体选择、kill 检查与复核
-  obfuscate/                      __init__（总入口）symbols structure semantic verify _edits（结构 / 语义变换共用的改写基础设施，含括号配对与宏调用区间，mutate 也用）
-  llm.py prompt.py describe.py postprocess.py  模型调用与缓存、提示词（含修复任务的上下文裁剪）、功能规格、回复后处理与硬性约束检查
-  runner.py attribute.py similarity.py  替换与沙箱评测、错误归因、词法器与归一化相似度（含 unchanged / restored 用的规范化比较）
-  metrics.py report.py            指标汇总与报告
-  experiment_record.py            把 prepare 到 verify 以及 mutate、check-mutants 的产出汇总成 docs/实验记录.md 的数据部分
-  store.py pipeline.py cli.py     工作区与数据文件读写、各阶段实现、命令行
-corpus/specs/*.json               9 个语料的 spec（构建与测试命令、过滤、vendored、keep_names、exclude_targets、allow_words）
-corpus/src/                       语料源码副本（prepare 生成，不入库）
-tests/                            单元测试与 e2e（fixtures/mini 是自写的小项目；conftest.py / helpers.py 是共用夹具）
-scripts/ci.sh                     CI 脚本：缺 docker 或语料就失败，不允许有跳过的用例
-pyproject.toml                    打包与 pytest 配置（Python >= 3.10，运行时只依赖 clang==14.0）
-results/                          数据文件（缓存目录不入库）
-docs/                             设计文档（含缺陷修复任务的附录）、实验记录
-docker/                           预留目录，目前为空（沙箱直接用官方 gcc:13 镜像）
-tmp/                              中间产物（混淆副本、沙箱临时目录、e2e 输出），不入库
+  __init__.py __main__.py         package entry (Python version check), python3 -m bench
+  vocab.py limitations.py provenance.py  shared vocabularies (levels / reply issues / attribution categories), the limitations list (shared by the README and the report), code and sandbox digests
+  corpus.py sandbox.py clangcfg.py  corpus spec and source preparation, Docker sandbox, libclang configuration (the single source of parse arguments)
+  extract.py coverage.py targets.py  function extraction and dependency closure, execution counts, target selection and stub-kill
+  mutate.py                       the eight mutation operators of the bug-repair task (finding sites, rewriting), the same site across levels (token alignment) and mutant selection, kill check and re-check
+  obfuscate/                      __init__ (main entry) symbols structure semantic verify _edits (rewriting infrastructure shared by the structural / semantic transformations, including bracket pairing and macro-call ranges; mutate uses it too)
+  llm.py prompt.py describe.py postprocess.py  model calls and cache, prompts (including context pruning for the repair task), functional specifications, reply post-processing and hard-constraint checks
+  runner.py attribute.py similarity.py  replacement and sandbox evaluation, error attribution, lexer and normalized similarity (including the normalized comparison used for unchanged / restored)
+  metrics.py report.py            metric aggregation and reports
+  experiment_record.py            aggregates the outputs from prepare through verify, plus mutate and check-mutants, into the data part of docs/实验记录.md
+  store.py pipeline.py cli.py     workspace and data-file I/O, implementation of the stages, command line
+corpus/specs/*.json               specs of the 9 corpora (build and test commands, filtering, vendored, keep_names, exclude_targets, allow_words)
+corpus/src/                       copies of the corpus sources (generated by prepare, not checked in)
+tests/                            unit tests and e2e (fixtures/mini is a small purpose-written project; conftest.py / helpers.py are the shared fixtures)
+scripts/ci.sh                     CI script: fails if docker or a corpus is missing; no skipped test cases are allowed
+pyproject.toml                    packaging and pytest configuration (Python >= 3.10; the only runtime dependency is clang==14.0)
+results/                          data files (the cache directory is not checked in)
+docs/                             design documents (including the appendix for the bug-repair task), experiment log
+docker/                           reserved directory, currently empty (the sandbox uses the official gcc:13 image directly)
+tmp/                              intermediate products (obfuscated copies, sandbox temporary directories, e2e output), not checked in
 ```
 
-## 11. 开发与测试
+## 11. Development and testing
 
 ```bash
-python3 -m pytest tests -q                       # 全量，需要 docker 与 gcc:13；开发机上实测约 20 分钟（pytest 结束时打印总用时）
-python3 -m pytest tests/test_e2e_mock.py -q      # 集成：指标、报告、命令行、mini 上的全链路 e2e（含缺陷修复任务）；同一台机器上实测约 11 分钟
-BENCH_REAL_CORPORA=quick python3 -m pytest tests/test_symbols.py -q   # 符号混淆只在 4 个真实语料上跑；=0 全部跳过，默认 9 个都跑
-python3 -m pyflakes bench tests                  # 静态检查，必须零告警
-python3 -m bench.experiment_record --update docs/实验记录.md   # 用 results/ 里的产出重新生成实验记录的数据部分
-bash scripts/ci.sh                               # CI：pyflakes + 全量 pytest（缺 docker / 语料即失败，有跳过即失败）+ e2e
+python3 -m pytest tests -q                       # full suite; needs docker and gcc:13; measured at about 20 minutes on the dev machine (pytest prints the total time when it finishes)
+python3 -m pytest tests/test_e2e_mock.py -q      # integration: metrics, report, command line, whole-pipeline e2e on mini (bug-repair task included); measured at about 11 minutes on the same machine
+BENCH_REAL_CORPORA=quick python3 -m pytest tests/test_symbols.py -q   # symbol renaming runs on only 4 real corpora; =0 skips them all, the default runs all 9
+python3 -m pyflakes bench tests                  # static check; must report zero warnings
+python3 -m bench.experiment_record --update docs/实验记录.md   # regenerate the data part of the experiment log from the outputs in results/
+bash scripts/ci.sh                               # CI: pyflakes + full pytest (fails if docker / corpora are missing, fails on any skip) + e2e
 ```
 
-沙箱用例（`needs_docker` 标记）在 docker 或镜像不可用时默认**跳过**，套件仍显示通过；
-设 `BENCH_REQUIRE_DOCKER=1` 改为失败，`BENCH_REQUIRE_CORPUS=1` 让找不到真实语料时也失败。CI 必须同时设这两个（`scripts/ci.sh` 已设），
-否则整组可信度措施的自测在没有 docker 的机器上悄悄跳过。
+Sandbox test cases (marked `needs_docker`) are **skipped** by default when docker or the image is unavailable, and the suite still shows as passing;
+set `BENCH_REQUIRE_DOCKER=1` to make them fail instead, and `BENCH_REQUIRE_CORPUS=1` to make a missing real corpus fail as well. CI must set both (`scripts/ci.sh` already does),
+otherwise the self-tests of the whole set of credibility measures are silently skipped on a machine without docker.
 
-上面的耗时是 16 核 / 15 GB 的开发机上的实测（全量 20 分 05 秒，其中 `test_e2e_mock.py` 约 650 秒），随机器和负载变化。想自己量：
-`python3 -m pytest tests -q --durations=15 --junitxml=tmp/pytest/junit.xml`，结束时打印总用时和最慢的 15 个测试，XML 里每个测试有 `time`，按文件加起来就是各文件的耗时。
+The timings above were measured on a 16-core / 15 GB development machine (20 min 05 s for the full suite, of which `test_e2e_mock.py` takes about 650 s) and vary with the machine and the load. To measure it yourself:
+`python3 -m pytest tests -q --durations=15 --junitxml=tmp/pytest/junit.xml`, which prints the total time and the 15 slowest tests at the end; in the XML every test has a `time`, and summing by file gives each file's time.
 
-只给测试用的环境变量：`BENCH_REQUIRE_DOCKER`、`BENCH_REQUIRE_CORPUS`、`BENCH_SANDBOX_IMAGE`（沙箱镜像，默认 `gcc:13`）、
-`BENCH_REAL_CORPORA`（`quick` / `0`，见上）。临时文件都放在项目 `tmp/` 下，不碰系统临时目录。
+Environment variables used only by tests: `BENCH_REQUIRE_DOCKER`, `BENCH_REQUIRE_CORPUS`, `BENCH_SANDBOX_IMAGE` (the sandbox image, default `gcc:13`),
+`BENCH_REAL_CORPORA` (`quick` / `0`, see above). All temporary files are placed under the project's `tmp/`; the system temporary directory is not touched.

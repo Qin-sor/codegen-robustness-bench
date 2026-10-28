@@ -18,7 +18,7 @@ from bench.llm import PRESETS
 from bench.store import Workspace
 from tests.helpers import BANNED, ROOT
 
-README = ROOT / "README.md"
+README = ROOT / "README.zh-CN.md"
 DESIGN = ROOT / "docs" / "设计.md"
 EXPERIMENT_LOG = ROOT / "docs" / "实验记录.md"
 
@@ -40,7 +40,7 @@ def _project_text_files() -> list[Path]:
         for p in sorted(base.rglob("*")):
             if p.is_file() and not (set(p.relative_to(ROOT).parts) & _SKIP_DIRS) and p.suffix in _TEXT_SUFFIXES:
                 files.append(p)
-    for name in ("README.md", "pyproject.toml", ".gitignore"):
+    for name in ("README.md", "README.zh-CN.md", "pyproject.toml", ".gitignore"):
         if (ROOT / name).is_file():
             files.append(ROOT / name)
     return files
@@ -70,7 +70,7 @@ def _readme_section(title_part: str) -> str:
 class TestStyle:
     def test_the_file_list_covers_every_part_of_the_project(self):
         rels = {_rel(p) for p in FILES}
-        assert {"README.md", "docs/设计.md", "pyproject.toml", "scripts/ci.sh", "bench/pipeline.py",
+        assert {"README.md", "README.zh-CN.md", "docs/设计.md", "pyproject.toml", "scripts/ci.sh", "bench/pipeline.py",
                 "bench/obfuscate/symbols.py", "tests/test_hygiene.py", "corpus/specs/cjson.json"} <= rels
 
     @pytest.mark.parametrize("path", FILES, ids=_rel)
