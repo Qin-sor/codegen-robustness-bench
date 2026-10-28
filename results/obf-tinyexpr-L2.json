@@ -3,7 +3,7 @@
  "corpus": "tinyexpr",
  "level": "L2",
  "seed": 20261027,
- "created": "2026-10-27T17:23:03+00:00",
+ "created": "2026-10-27T23:08:33+00:00",
  "inputs": {
   "spec": "9e56886c54c73a6a",
   "pristine": "2b917ab30eddd78d",
@@ -12,7 +12,7 @@
   "strict": null,
   "targets": "12c2f1f5fdb6d84d",
   "version": 1,
-  "code": "cf3da71fe7c9228e",
+  "code": "ae3c821757d5ac82",
   "clang": {
    "python_binding": "14.0",
    "library": "libclang.so.1",
@@ -20,12 +20,12 @@
   },
   "env": "fe40f23a8559c0bb"
  },
- "input_hash": "c19c35fc6bf4a729",
+ "input_hash": "2cdb428288a0992d",
  "strict_stringify": false,
  "tree_hash": "5cdb7b1485505c9d",
  "ok": true,
  "problems": [],
- "elapsed_s": 2.86,
+ "elapsed_s": 2.89,
  "rename_map": {
   "ARITY": "M_8",
   "CHECK_NULL": "M_9",
@@ -388,7 +388,7 @@
   "missing": [],
   "tests_passed": true,
   "timed_out": false,
-  "duration_s": 1.4676047090033535,
+  "duration_s": 1.3678076219803188,
   "n_targets": 18
  },
  "oracle_gate": {
@@ -437,15 +437,15 @@
    "tinyexpr:tinyexpr.c:te_interp"
   ],
   "inputs": {
-   "obf": "c19c35fc6bf4a729",
+   "obf": "2cdb428288a0992d",
    "tree": "5cdb7b1485505c9d",
    "targets": "12c2f1f5fdb6d84d",
    "version": 2,
-   "code": "6ec45e679e436985",
+   "code": "a726db396abe17c9",
    "env": "f66539fef467dd81"
   },
-  "input_hash": "929bd1cf2685ff03",
-  "created": "2026-10-27T17:29:45+00:00",
+  "input_hash": "4ac6a54ed4a0ef95",
+  "created": "2026-10-27T23:15:12+00:00",
   "sandbox": {
    "image": "gcc:13",
    "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",

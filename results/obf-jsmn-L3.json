@@ -3,7 +3,7 @@
  "corpus": "jsmn",
  "level": "L3",
  "seed": 20261027,
- "created": "2026-10-27T17:22:22+00:00",
+ "created": "2026-10-27T23:07:54+00:00",
  "inputs": {
   "spec": "bd6d15bfac089cfd",
   "pristine": "9449be73025fd3d9",
@@ -12,7 +12,7 @@
   "strict": null,
   "targets": "77c075b32583576b",
   "version": 1,
-  "code": "cf3da71fe7c9228e",
+  "code": "ae3c821757d5ac82",
   "clang": {
    "python_binding": "14.0",
    "library": "libclang.so.1",
@@ -20,12 +20,12 @@
   },
   "env": "fe40f23a8559c0bb"
  },
- "input_hash": "d0b666d6bc901c82",
+ "input_hash": "d658f0af5df1544e",
  "strict_stringify": false,
  "tree_hash": "1c12781cce861790",
  "ok": true,
  "problems": [],
- "elapsed_s": 1.23,
+ "elapsed_s": 1.11,
  "rename_map": {
   "JSMN_API": "M_3",
   "JSMN_H": "M_5",
@@ -305,7 +305,7 @@
   "missing": [],
   "tests_passed": true,
   "timed_out": false,
-  "duration_s": 0.5655805910064373,
+  "duration_s": 0.5655787849973422,
   "n_targets": 5
  },
  "oracle_gate": {
@@ -328,15 +328,15 @@
    "jsmn:jsmn.h:jsmn_parse_string"
   ],
   "inputs": {
-   "obf": "d0b666d6bc901c82",
+   "obf": "d658f0af5df1544e",
    "tree": "1c12781cce861790",
    "targets": "77c075b32583576b",
    "version": 2,
-   "code": "6ec45e679e436985",
+   "code": "a726db396abe17c9",
    "env": "f66539fef467dd81"
   },
-  "input_hash": "5abb2ad301b06165",
-  "created": "2026-10-27T17:26:05+00:00",
+  "input_hash": "430f1d7c2c1b41dc",
+  "created": "2026-10-27T23:11:37+00:00",
   "sandbox": {
    "image": "gcc:13",
    "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",

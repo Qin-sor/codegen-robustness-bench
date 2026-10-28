@@ -3,7 +3,7 @@
  "corpus": "parson",
  "level": "L3",
  "seed": 20261027,
- "created": "2026-10-27T17:22:48+00:00",
+ "created": "2026-10-27T23:08:18+00:00",
  "inputs": {
   "spec": "7ddc418baff5c18b",
   "pristine": "2ad80ff6bc5765ce",
@@ -12,7 +12,7 @@
   "strict": null,
   "targets": "b4729d30aef2e9e7",
   "version": 1,
-  "code": "cf3da71fe7c9228e",
+  "code": "ae3c821757d5ac82",
   "clang": {
    "python_binding": "14.0",
    "library": "libclang.so.1",
@@ -20,12 +20,12 @@
   },
   "env": "fe40f23a8559c0bb"
  },
- "input_hash": "403e93079ec7873e",
+ "input_hash": "4507c670f874d3d7",
  "strict_stringify": false,
  "tree_hash": "88f16b4fce6e7e12",
  "ok": true,
  "problems": [],
- "elapsed_s": 3.14,
+ "elapsed_s": 3.01,
  "rename_map": {
   "APPEND_INDENT": "M_27",
   "APPEND_STRING": "M_15",
@@ -780,7 +780,7 @@
   "missing": [],
   "tests_passed": true,
   "timed_out": false,
-  "duration_s": 0.9159211750084069,
+  "duration_s": 0.8163395119772758,
   "n_targets": 50
  },
  "oracle_gate": {
@@ -893,15 +893,15 @@
    "parson:parson.c:skip_quotes"
   ],
   "inputs": {
-   "obf": "403e93079ec7873e",
+   "obf": "4507c670f874d3d7",
    "tree": "88f16b4fce6e7e12",
    "targets": "b4729d30aef2e9e7",
    "version": 2,
-   "code": "6ec45e679e436985",
+   "code": "a726db396abe17c9",
    "env": "f66539fef467dd81"
   },
-  "input_hash": "518cf55c69c6c787",
-  "created": "2026-10-27T17:28:52+00:00",
+  "input_hash": "53e39d5b2434ead9",
+  "created": "2026-10-27T23:14:17+00:00",
   "sandbox": {
    "image": "gcc:13",
    "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",

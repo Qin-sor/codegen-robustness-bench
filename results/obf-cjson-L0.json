@@ -3,7 +3,7 @@
  "corpus": "cjson",
  "level": "L0",
  "seed": 20261027,
- "created": "2026-10-27T17:21:44+00:00",
+ "created": "2026-10-27T23:07:05+00:00",
  "inputs": {
   "spec": "69f320fc1a7ceccc",
   "pristine": "bfc29de921c8799c",
@@ -12,16 +12,16 @@
   "strict": null,
   "targets": "b6e5b74e55b546d8",
   "version": 1,
-  "code": "cf3da71fe7c9228e",
+  "code": "ae3c821757d5ac82",
   "clang": null,
   "env": "fe40f23a8559c0bb"
  },
- "input_hash": "54294f53aa6dbaef",
+ "input_hash": "89fdd4e690906d75",
  "strict_stringify": false,
  "tree_hash": "bfc29de921c8799c",
  "ok": true,
  "problems": [],
- "elapsed_s": 3.62,
+ "elapsed_s": 3.43,
  "rename_map": {},
  "stats": {
   "level": "L0",
@@ -43,7 +43,7 @@
   "missing": [],
   "tests_passed": true,
   "timed_out": false,
-  "duration_s": 3.1709905579918995,
+  "duration_s": 2.921090051997453,
   "n_targets": 50
  },
  "oracle_gate": {
@@ -156,15 +156,15 @@
    "cjson:cJSON_Utils.c:overwrite_item"
   ],
   "inputs": {
-   "obf": "54294f53aa6dbaef",
+   "obf": "89fdd4e690906d75",
    "tree": "bfc29de921c8799c",
    "targets": "b6e5b74e55b546d8",
    "version": 2,
-   "code": "6ec45e679e436985",
+   "code": "a726db396abe17c9",
    "env": "f66539fef467dd81"
   },
-  "input_hash": "2554f7ef96e3b2ed",
-  "created": "2026-10-27T17:23:47+00:00",
+  "input_hash": "9180353860aa328f",
+  "created": "2026-10-27T23:09:19+00:00",
   "sandbox": {
    "image": "gcc:13",
    "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",

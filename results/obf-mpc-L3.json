@@ -3,7 +3,7 @@
  "corpus": "mpc",
  "level": "L3",
  "seed": 20261027,
- "created": "2026-10-27T17:22:38+00:00",
+ "created": "2026-10-27T23:08:09+00:00",
  "inputs": {
   "spec": "6f9824593f924c67",
   "pristine": "21461faab07e877b",
@@ -12,7 +12,7 @@
   "strict": null,
   "targets": "d676e635f4b064ca",
   "version": 1,
-  "code": "cf3da71fe7c9228e",
+  "code": "ae3c821757d5ac82",
   "clang": {
    "python_binding": "14.0",
    "library": "libclang.so.1",
@@ -20,12 +20,12 @@
   },
   "env": "fe40f23a8559c0bb"
  },
- "input_hash": "f7f8d565fdd49b8e",
+ "input_hash": "e808b78ac7018e4d",
  "strict_stringify": false,
  "tree_hash": "019ecfb228b42644",
  "ok": true,
  "problems": [],
- "elapsed_s": 4.98,
+ "elapsed_s": 4.76,
  "rename_map": {
   "MPC_FAILURE": "M_3",
   "MPC_MAX_RECURSION_DEPTH": "M_5",
@@ -962,7 +962,7 @@
   "missing": [],
   "tests_passed": true,
   "timed_out": false,
-  "duration_s": 1.9690493549860548,
+  "duration_s": 1.6180121779907495,
   "n_targets": 50
  },
  "oracle_gate": {
@@ -1075,15 +1075,15 @@
    "mpc:mpc.c:mpcf_unescape"
   ],
   "inputs": {
-   "obf": "f7f8d565fdd49b8e",
+   "obf": "e808b78ac7018e4d",
    "tree": "019ecfb228b42644",
    "targets": "d676e635f4b064ca",
    "version": 2,
-   "code": "6ec45e679e436985",
+   "code": "a726db396abe17c9",
    "env": "f66539fef467dd81"
   },
-  "input_hash": "fbf1d0315f42f210",
-  "created": "2026-10-27T17:27:47+00:00",
+  "input_hash": "925b51da91c39bac",
+  "created": "2026-10-27T23:13:15+00:00",
   "sandbox": {
    "image": "gcc:13",
    "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",

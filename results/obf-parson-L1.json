@@ -3,7 +3,7 @@
  "corpus": "parson",
  "level": "L1",
  "seed": 20261027,
- "created": "2026-10-27T17:22:42+00:00",
+ "created": "2026-10-27T23:08:13+00:00",
  "inputs": {
   "spec": "7ddc418baff5c18b",
   "pristine": "2ad80ff6bc5765ce",
@@ -12,7 +12,7 @@
   "strict": null,
   "targets": "b4729d30aef2e9e7",
   "version": 1,
-  "code": "cf3da71fe7c9228e",
+  "code": "ae3c821757d5ac82",
   "clang": {
    "python_binding": "14.0",
    "library": "libclang.so.1",
@@ -20,12 +20,12 @@
   },
   "env": "fe40f23a8559c0bb"
  },
- "input_hash": "454b0d6008c4bdbd",
+ "input_hash": "d07f725e6ca9d64d",
  "strict_stringify": false,
  "tree_hash": "90f68ca5db9323db",
  "ok": true,
  "problems": [],
- "elapsed_s": 2.6,
+ "elapsed_s": 2.3,
  "rename_map": {
   "APPEND_INDENT": "M_27",
   "APPEND_STRING": "M_15",
@@ -638,7 +638,7 @@
   "missing": [],
   "tests_passed": true,
   "timed_out": false,
-  "duration_s": 0.7658271079999395,
+  "duration_s": 0.8161449920153245,
   "n_targets": 50
  },
  "oracle_gate": {
@@ -751,15 +751,15 @@
    "parson:parson.c:skip_quotes"
   ],
   "inputs": {
-   "obf": "454b0d6008c4bdbd",
+   "obf": "d07f725e6ca9d64d",
    "tree": "90f68ca5db9323db",
    "targets": "b4729d30aef2e9e7",
    "version": 2,
-   "code": "6ec45e679e436985",
+   "code": "a726db396abe17c9",
    "env": "f66539fef467dd81"
   },
-  "input_hash": "0963df685cf116cb",
-  "created": "2026-10-27T17:28:20+00:00",
+  "input_hash": "caa5ad4fcafb81bc",
+  "created": "2026-10-27T23:13:45+00:00",
   "sandbox": {
    "image": "gcc:13",
    "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",

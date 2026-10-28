@@ -3,7 +3,7 @@
  "corpus": "vec",
  "level": "L0",
  "seed": 20261027,
- "created": "2026-10-27T17:23:06+00:00",
+ "created": "2026-10-27T23:08:36+00:00",
  "inputs": {
   "spec": "7e02ce4f57ddfca4",
   "pristine": "892b82047e4afa9d",
@@ -12,16 +12,16 @@
   "strict": null,
   "targets": "1029ff68ac81f3d9",
   "version": 1,
-  "code": "cf3da71fe7c9228e",
+  "code": "ae3c821757d5ac82",
   "clang": null,
   "env": "fe40f23a8559c0bb"
  },
- "input_hash": "a2a8966be50cc454",
+ "input_hash": "ec62f7558fe29c87",
  "strict_stringify": false,
  "tree_hash": "892b82047e4afa9d",
  "ok": true,
  "problems": [],
- "elapsed_s": 0.44,
+ "elapsed_s": 0.39,
  "rename_map": {},
  "stats": {
   "level": "L0",
@@ -43,7 +43,7 @@
   "missing": [],
   "tests_passed": true,
   "timed_out": false,
-  "duration_s": 0.41547464299947023,
+  "duration_s": 0.3650246039906051,
   "n_targets": 6
  },
  "oracle_gate": {
@@ -68,15 +68,15 @@
    "vec:src/vec.c:vec_swap_"
   ],
   "inputs": {
-   "obf": "a2a8966be50cc454",
+   "obf": "ec62f7558fe29c87",
    "tree": "892b82047e4afa9d",
    "targets": "1029ff68ac81f3d9",
    "version": 2,
-   "code": "6ec45e679e436985",
+   "code": "a726db396abe17c9",
    "env": "f66539fef467dd81"
   },
-  "input_hash": "4df0ec51220757d0",
-  "created": "2026-10-27T17:29:55+00:00",
+  "input_hash": "50e5c4c9f58c4644",
+  "created": "2026-10-27T23:15:22+00:00",
   "sandbox": {
    "image": "gcc:13",
    "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",

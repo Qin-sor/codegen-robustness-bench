@@ -133,7 +133,7 @@ class TestStubKillIsNotOptional:
         store.write_jsonl(ws.targets_file("mini"), recs)
         describe_all(ctx, mini_spec)
         tasks, _ = pipeline.plan_tasks(ctx, mini_spec, ["L0"])
-        modes = {pt.original.target_id: pt.kill_mode for pt in tasks}
+        modes = {pt.original.target_id: pt.stub_kill_mode for pt in tasks}
         assert modes[recs[0]["target_id"]] == "runtime_crash" and set(modes.values()) == {"runtime_crash", "test_fail"}
 
 

@@ -3,7 +3,7 @@
  "corpus": "cjson",
  "level": "L1",
  "seed": 20261027,
- "created": "2026-10-27T17:21:52+00:00",
+ "created": "2026-10-27T23:07:14+00:00",
  "inputs": {
   "spec": "69f320fc1a7ceccc",
   "pristine": "bfc29de921c8799c",
@@ -12,7 +12,7 @@
   "strict": null,
   "targets": "b6e5b74e55b546d8",
   "version": 1,
-  "code": "cf3da71fe7c9228e",
+  "code": "ae3c821757d5ac82",
   "clang": {
    "python_binding": "14.0",
    "library": "libclang.so.1",
@@ -20,12 +20,12 @@
   },
   "env": "fe40f23a8559c0bb"
  },
- "input_hash": "336ee52a943a3af9",
+ "input_hash": "1a3b9ab2f396c7e2",
  "strict_stringify": false,
  "tree_hash": "a8b01a776087ac75",
  "ok": true,
  "problems": [],
- "elapsed_s": 7.59,
+ "elapsed_s": 8.76,
  "rename_map": {
   "CJSON_CDECL": "M_36",
   "CJSON_CIRCULAR_LIMIT": "M_31",
@@ -979,7 +979,7 @@
   "missing": [],
   "tests_passed": true,
   "timed_out": false,
-  "duration_s": 3.0215908719983418,
+  "duration_s": 3.121377489005681,
   "n_targets": 50
  },
  "oracle_gate": {
@@ -1092,15 +1092,15 @@
    "cjson:cJSON_Utils.c:overwrite_item"
   ],
   "inputs": {
-   "obf": "336ee52a943a3af9",
+   "obf": "1a3b9ab2f396c7e2",
    "tree": "a8b01a776087ac75",
    "targets": "b6e5b74e55b546d8",
    "version": 2,
-   "code": "6ec45e679e436985",
+   "code": "a726db396abe17c9",
    "env": "f66539fef467dd81"
   },
-  "input_hash": "b835d636d642ec56",
-  "created": "2026-10-27T17:24:27+00:00",
+  "input_hash": "bd85c08e24e6f0a5",
+  "created": "2026-10-27T23:09:59+00:00",
   "sandbox": {
    "image": "gcc:13",
    "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",

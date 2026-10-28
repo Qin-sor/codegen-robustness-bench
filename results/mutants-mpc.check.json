@@ -1,0 +1,91 @@
+{
+ "schema_version": 1,
+ "corpus": "mpc",
+ "created": "2026-10-28T00:30:07+00:00",
+ "with_oracle": true,
+ "inputs": {
+  "mutants": {
+   "L0": "62d994a33d2662c7",
+   "L1": "592746704b6c58be",
+   "L2": "9fb683f4378a69e1",
+   "L3": "7b8072f4e473ca82"
+  },
+  "env": "f66539fef467dd81",
+  "seed": 20261027
+ },
+ "sandbox": {
+  "image": "gcc:13",
+  "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",
+  "cpus": 1.0,
+  "memory": "1g",
+  "pids": 256,
+  "timeout_s": 120
+ },
+ "levels": {
+  "L0": {
+   "replayed": 50,
+   "killed": 50,
+   "same_mode": 50,
+   "passed": 0,
+   "other": 0,
+   "oracle_failed": 0
+  },
+  "L1": {
+   "replayed": 49,
+   "killed": 49,
+   "same_mode": 48,
+   "passed": 0,
+   "other": 0,
+   "oracle_failed": 0
+  },
+  "L2": {
+   "replayed": 49,
+   "killed": 49,
+   "same_mode": 48,
+   "passed": 0,
+   "other": 0,
+   "oracle_failed": 0
+  },
+  "L3": {
+   "replayed": 49,
+   "killed": 49,
+   "same_mode": 49,
+   "passed": 0,
+   "other": 0,
+   "oracle_failed": 0
+  }
+ },
+ "total": {
+  "replayed": 197,
+  "killed": 197,
+  "same_mode": 195,
+  "passed": 0,
+  "other": 0,
+  "oracle_failed": 0
+ },
+ "flipped": [
+  {
+   "task_id": "mpc:mpc.c:mpcaf_grammar_string@L1#repair",
+   "recorded": "runtime_timeout",
+   "replay": "test_fail"
+  },
+  {
+   "task_id": "mpc:mpc.c:mpcaf_grammar_string@L2#repair",
+   "recorded": "runtime_timeout",
+   "replay": "test_fail"
+  }
+ ],
+ "failed": [],
+ "voided": {
+  "L0": {},
+  "L1": {
+   "name_in_literal": 1
+  },
+  "L2": {
+   "name_in_literal": 1
+  },
+  "L3": {
+   "name_in_literal": 1
+  }
+ }
+}

@@ -67,8 +67,8 @@ import clang.cindex as ci
 from bench import clangcfg, corpus
 from bench.clangcfg import kind_of
 from bench.obfuscate._edits import (
-    Edit, FileStats, Parser, RecursionGuard, check_laminar, empty_stats, file_name, host_map,
-    libclang_args, merge_stats, plan_files, render, rollback_invalid, run_files,
+    Edit, FileStats, MacroIntervals, Parser, RecursionGuard, check_laminar, empty_stats, file_name, host_map,
+    libclang_args, match_close, merge_stats, plan_files, render, rollback_invalid, run_files,
 )
 
 log = logging.getLogger(__name__)
@@ -234,7 +234,7 @@ class _FileCtx:
         self._tok_at: dict[int, int] = {}
         self._tokenize()
         self.macros: list[tuple[int, int, ci.Cursor]] = []
-        self.macro_iv: list[tuple[int, int]] = []    # 合并后的最外层宏调用区间
+        self.macro_iv = MacroIntervals(())           # 最外层宏调用的区间（合并后）
         self._collect_macros()
 
     # -- 构建 ----------------------------------------------------------
@@ -300,14 +300,7 @@ class _FileCtx:
             ex = ch.extent
             self.macros.append((ex.start.offset, ex.end.offset, ch))
         self.macros.sort(key=lambda m: (m[0], -m[1]))
-        merged: list[list[int]] = []
-        for s, e, _ in self.macros:
-            if merged and s < merged[-1][1]:
-                merged[-1][1] = max(merged[-1][1], e)
-            else:
-                merged.append([s, e])
-        self.macro_iv = [(a, b) for a, b in merged]
-        self._macro_starts = [a for a, _ in self.macro_iv]
+        self.macro_iv = MacroIntervals((s, e) for s, e, _ in self.macros)
         self._mac_starts = [m[0] for m in self.macros]
 
     # -- 记号查询 ------------------------------------------------------
@@ -334,19 +327,7 @@ class _FileCtx:
 
     def match_close(self, i: int) -> int | None:
         """T[i] 是 ( [ { 之一，返回与之配对的右括号下标；配不上返回 None。"""
-        stack: list[str] = []
-        T = self.T
-        for j in range(i, len(T)):
-            t = T[j]
-            if t in _OPEN:
-                stack.append(t)
-            elif t in _CLOSE:
-                if not stack or stack[-1] != _CLOSE[t]:
-                    return None
-                stack.pop()
-                if not stack:
-                    return j
-        return None
+        return match_close(self.T, i)
 
     def split_top(self, i: int, j: int, sep: str) -> list[int]:
         """下标 [i, j) 内、括号深度为 0 的 sep 记号下标。"""
@@ -397,19 +378,8 @@ class _FileCtx:
     # -- 宏与预处理指令 -------------------------------------------------
     def require_not_macro(self, s: int, e: int) -> None:
         """节点 [s, e) 必须与宏调用区间不冲突：与某个最外层宏调用重叠时，只允许完整包住它且范围不相等。"""
-        iv = self.macro_iv
-        if not iv:
-            return
-        i = bisect.bisect_right(self._macro_starts, s) - 1
-        if i < 0:
-            i = 0
-        while i < len(iv) and iv[i][0] < e:
-            ms, me = iv[i]
-            i += 1
-            if me <= s:
-                continue
-            if not (s <= ms and me <= e) or (ms == s and me == e):
-                raise _Reject("macro")
+        if self.macro_iv.conflicts(s, e):
+            raise _Reject("macro")
 
     def macro_at(self, s: int, e: int) -> ci.Cursor | None:
         """范围恰为 [s, e) 的宏调用（有嵌套同范围的取最外层）。"""

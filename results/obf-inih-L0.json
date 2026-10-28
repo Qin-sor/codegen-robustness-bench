@@ -3,7 +3,7 @@
  "corpus": "inih",
  "level": "L0",
  "seed": 20261027,
- "created": "2026-10-27T17:22:14+00:00",
+ "created": "2026-10-27T23:07:40+00:00",
  "inputs": {
   "spec": "5fb74d3c865c3f49",
   "pristine": "939c2e457d3d93cd",
@@ -12,16 +12,16 @@
   "strict": null,
   "targets": "b951c9b07f2c9f4a",
   "version": 1,
-  "code": "cf3da71fe7c9228e",
+  "code": "ae3c821757d5ac82",
   "clang": null,
   "env": "fe40f23a8559c0bb"
  },
- "input_hash": "740ab4a2b871b0ed",
+ "input_hash": "9c797e9d5928c57a",
  "strict_stringify": false,
  "tree_hash": "939c2e457d3d93cd",
  "ok": true,
  "problems": [],
- "elapsed_s": 1.11,
+ "elapsed_s": 2.67,
  "rename_map": {},
  "stats": {
   "level": "L0",
@@ -43,7 +43,7 @@
   "missing": [],
   "tests_passed": true,
   "timed_out": false,
-  "duration_s": 1.0671535180008505,
+  "duration_s": 2.6219248450070154,
   "n_targets": 5
  },
  "oracle_gate": {
@@ -66,15 +66,15 @@
    "inih:ini.c:ini_strncpy0"
   ],
   "inputs": {
-   "obf": "740ab4a2b871b0ed",
+   "obf": "9c797e9d5928c57a",
    "tree": "939c2e457d3d93cd",
    "targets": "b951c9b07f2c9f4a",
    "version": 2,
-   "code": "6ec45e679e436985",
+   "code": "a726db396abe17c9",
    "env": "f66539fef467dd81"
   },
-  "input_hash": "39c8bb33adad9542",
-  "created": "2026-10-27T17:25:51+00:00",
+  "input_hash": "7272e754a13630cc",
+  "created": "2026-10-27T23:11:23+00:00",
   "sandbox": {
    "image": "gcc:13",
    "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",

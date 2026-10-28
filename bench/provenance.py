@@ -36,6 +36,11 @@ CODE_MODULES: dict[str, tuple[str, ...]] = {
     "oracle_gate": _JUDGE,
     "evaluate": _JUDGE,
     "describe": ("describe", "extract", "prompt", "clangcfg"),
+    # 缺陷修复任务的变异体：位点识别与改写（mutate、obfuscate/_edits）、kill 检查走的评测与归因（runner、attribute、postprocess）、
+    # 副本里重新定位目标（extract、clangcfg）、沙箱与语料判据（sandbox、corpus）、归因类别词表（vocab），
+    # 以及变异体记录里的「上下文里多余的名字」（prompt.prune_context 与它用的词法器 similarity）
+    "mutate": ("mutate", "runner", "attribute", "extract", "corpus", "sandbox", "clangcfg", "obfuscate/_edits",
+               "postprocess", "vocab", "prompt", "similarity"),
 }
 
 #: 沙箱身份里决定「工具链是不是同一个」的字段（镜像标签与镜像 ID）；其余是资源上限

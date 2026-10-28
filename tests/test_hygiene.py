@@ -199,7 +199,8 @@ class TestReadmeMatchesTheCode:
         known = set().union(*_cli_options().values())
         foreign = {"--network", "--cap-drop", "--pids-limit", "--security-opt", "--coverage", "--memory-swap",
                    "--ulimit", "--rm", "--name",                        # docker / gcc 的选项，README 在讲沙箱时会提到
-                   "--update"}                                           # python3 -m bench.experiment_record 的选项
+                   "--update",                                           # python3 -m bench.experiment_record 的选项
+                   "--durations", "--junitxml"}                          # pytest 的选项（README 第 11 节讲怎么量耗时）
         mentioned = set(re.findall(r"(?<![\w-])--[a-z][a-z0-9-]+", README.read_text(encoding="utf-8")))
         assert sorted(mentioned - known - foreign) == []
 
@@ -251,10 +252,34 @@ class TestReadmeMatchesTheCode:
             "usage.jsonl": ws.usage_file.name == "usage.jsonl",
             "summary-<tag>.md": ws.summary_file("t", ".md").name == "summary-t.md",
             "fig-<tag>.svg": ws.summary_file("t", ".svg").name == "fig-t.svg",
+            # 缺陷修复任务（附录 §7）
+            "mutants-<corpus>-<level>.jsonl": ws.mutants_file("c", "L1").name == "mutants-c-L1.jsonl",
+            "mutants-<corpus>.summary.json": ws.mutants_summary_file("c").name == "mutants-c.summary.json",
+            "mutants-<corpus>.check.json": ws.mutants_check_file("c").name == "mutants-c.check.json",
+            "tasks-repair.jsonl": ws.repair_tasks_file.name == "tasks-repair.jsonl",
+            "generations-repair-<model>.jsonl": ws.repair_generations_file("m").name == "generations-repair-m.jsonl",
+            "generation-failures-repair-<model>.jsonl":
+                ws.repair_generation_failures_file("m").name == "generation-failures-repair-m.jsonl",
+            "results-repair-<tag>.jsonl": ws.repair_results_file("t").name == "results-repair-t.jsonl",
+            "completeness-repair-<tag>.json": ws.repair_completeness_file("t").name == "completeness-repair-t.json",
         }
         assert [k for k, ok in pairs.items() if not ok] == []              # 表里写的文件名确实是 Workspace 给出的
         section = _readme_section("数据文件")
         assert [k for k in pairs if k not in section] == []                # 每个文件都在 README 的数据文件表里
+
+    def test_task_input_difference_is_the_shared_text(self):
+        """报告开头说明两类任务输入差异的文字（bench/limitations.py 单点维护）也要原样出现在 README 里。"""
+        flat = re.sub(r"\s+", "", README.read_text(encoding="utf-8"))
+        assert [line[:30] for line in limitations.TASK_INPUT_LINES if re.sub(r"\s+", "", line) not in flat] == []
+
+    def test_repair_task_is_described_where_users_look(self):
+        readme = README.read_text(encoding="utf-8")
+        for needle in ("python3 -m bench mutate", "--task repair", "same_operator_as_L0", "四级同算子", "unchanged", "restored",
+                       "mock-unchanged", "kill_mode"):
+            assert needle in readme, needle
+        design = DESIGN.read_text(encoding="utf-8")
+        assert "设计-缺陷修复任务.md" in design and "`mutate`" in design and "v0.3" in design
+        assert (ROOT / "docs" / "设计-缺陷修复任务.md").is_file()
 
     def test_readme_has_no_stale_claims(self):
         text = README.read_text(encoding="utf-8")

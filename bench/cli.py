@@ -7,11 +7,16 @@
     targets    选目标函数：静态过滤 → 执行次数 > 0 → 按 seed 抽样 + stub-kill
     obfuscate  生成 L0–L3 混淆副本（--level 选级别）并 verify
     verify     oracle gate：用混淆后的原函数文本逐目标走一遍完整 evaluate
+    mutate     缺陷修复任务的出题：在每级副本的目标函数里注入一个能被项目测试捕获的缺陷（--levels --max-tries）
+    check-mutants  把 mutate 选定的变异体在沙箱里回放复核：都要稳定地让项目测试失败（--levels --oracle）
     describe   用 LLM 为每个目标生成不含标识符的功能规格（--model）
-    generate   按（目标, 级别, 模型, 样本）出题并调模型（--model --levels --samples）
-    evaluate   后处理 → 替换回副本 → 沙箱编译与测试 → 归因（--model --tag）
-    report     汇总指标，输出 summary-<tag>.md / .csv 与图（--tag）
+    generate   按（目标, 级别, 模型, 样本）出题并调模型（--model --levels --samples --task）
+    evaluate   后处理 → 替换回副本 → 沙箱编译与测试 → 归因（--model --tag --task）
+    report     汇总指标，输出 summary-<tag>.md / .csv 与图（--tag --task）
     e2e        在 tests/fixtures/mini 上用 MockLLM 一键跑通全链路并断言（--backend mock）
+
+``generate`` / ``evaluate`` / ``report`` 的 ``--task`` 选任务类型：``generate`` 是功能规格生成任务，``repair`` 是缺陷修复任务
+（先运行 ``mutate``），``all``（默认）两类都处理；修复任务在 mutate 还没有产出时，``all`` 只给出提示并跳过它。
 
 所有命令都接受 ``--corpus``（可多选，默认全部语料）、``--seed``、``--jobs``，并且幂等：输出存在且输入哈希
 一致就跳过（``--force`` 强制重做）。输出文件默认在项目的 ``results/``，``--workspace DIR`` 可以把一切
@@ -38,21 +43,29 @@ from typing import Any, Optional, Sequence
 
 from bench import corpus
 from bench.llm import LLMError
+from bench.mutate import DEFAULT_MAX_TRIES
 from bench.obfuscate import LEVELS
 from bench.pipeline import (
-    DEFAULT_SEED, Context, StageError, StageResult, build_llm, load_target_records, stage_coverage,
-    stage_describe, stage_evaluate, stage_generate, stage_obfuscate, stage_prepare, stage_targets, stage_verify,
+    DEFAULT_SEED, TASKS, Context, StageError, StageResult, build_llm, load_target_records, resolve_tasks,
+    stage_check_mutants, stage_coverage, stage_describe, stage_evaluate, stage_generate, stage_mutate, stage_obfuscate,
+    stage_prepare, stage_targets, stage_verify,
 )
 from bench.report import ReportResult, build_report
-from bench.store import now_iso
-from bench.store import PROJECT_ROOT, Workspace, read_json, read_jsonl
+from bench.store import PROJECT_ROOT, Workspace, now_iso, read_json, read_jsonl
 from bench.targets import TargetFilter
+from bench.vocab import KILL_MODES
 
 log = logging.getLogger("bench")
 
 #: e2e 的夹具：tests/fixtures/mini（含 spec.json，语料名 mini）
 MINI_FIXTURE = PROJECT_ROOT / "tests" / "fixtures" / "mini"
 E2E_MODELS = ("mock-oracle", "mock-broken", "mock-wrong")
+#: 缺陷修复任务的 e2e 多三个模式：unchanged（原样返回变异体，模型什么也没改）、reformat（原函数换排版加注释，应当通过且 restored）、
+#: touched（变异体加一条无害语句，缺陷还在，应当失败且 unchanged / restored 都为假）
+E2E_REPAIR_MODELS = (*E2E_MODELS, "mock-unchanged", "mock-reformat", "mock-touched")
+#: e2e 里 unchanged 的归因与变异体的 kill_mode 一致的比例至少是多少（个别依赖负载的超时 / OOM 除外）
+E2E_MIN_SAME_MODE = 0.95
+TASK_CHOICES = (*TASKS, "all")
 E2E_TAG = "e2e"
 E2E_MARKER = ".bench-e2e"
 #: describe 的默认模型：设计文档要求「最强可用模型」；deepseek-chat / deepseek-reasoner 在官方文档里有弃用通知，不再当默认
@@ -61,7 +74,8 @@ DEFAULT_GENERATE_MODEL = "deepseek-flash"
 
 
 EPILOG = """\
-流水线顺序：prepare → coverage → targets → obfuscate → verify → describe → generate → evaluate → report
+流水线顺序：prepare → coverage → targets → obfuscate → verify → [mutate → check-mutants] → describe → generate → evaluate → report
+（mutate、check-mutants 只给缺陷修复任务用；generate / evaluate / report 的 --task 选任务类型，默认 all）
 所有命令幂等（输出存在且输入哈希一致就跳过，--force 强制重做），都接受 --corpus / --seed / --jobs。
 先用离线自测确认链路：python3 -m bench e2e --backend mock
 退出码：0 成功；1 阶段失败或 e2e 断言不成立；2 用法错误或缺少前置条件；130 被中断。"""
@@ -128,6 +142,17 @@ def build_parser() -> argparse.ArgumentParser:
     p = add("verify", "oracle gate：混淆后的原函数逐目标走一遍完整 evaluate")
     p.add_argument("--level", "--levels", dest="levels", nargs="+", choices=LEVELS, metavar="LEVEL", help="级别（默认全部）")
 
+    p = add("mutate", "缺陷修复任务的出题：在每级副本的目标函数里注入一个能被项目测试捕获的缺陷")
+    p.add_argument("--level", "--levels", dest="levels", nargs="+", choices=LEVELS, metavar="LEVEL",
+                   help="级别（默认全部）；不含 L0 时要求 L0 的 mutate 产出有效（其它级别优先复用 L0 选定的算子）")
+    p.add_argument("--max-tries", type=int, default=DEFAULT_MAX_TRIES,
+                   help="每个（目标, 级别）最多试多少个位点的 kill 检查，试满仍没有被杀死的变异体就放弃（默认 %(default)s）")
+
+    p = add("check-mutants", "回放复核 mutate 选定的变异体：都要稳定地让项目测试失败，杀死方式有没有变")
+    p.add_argument("--level", "--levels", dest="levels", nargs="+", choices=LEVELS, metavar="LEVEL", help="级别（默认全部）")
+    p.add_argument("--oracle", action="store_true",
+                   help="另把去注释后的原函数放回副本再跑一遍，都要通过（相当于 mock-oracle 的评测）")
+
     p = add("describe", "用 LLM 为每个目标生成功能规格（一次生成、四级共用）")
     p.add_argument("--model", default=DEFAULT_DESCRIBE_MODEL,
                    help="描述模型（默认 %(default)s；mock-oracle 等 mock-* 用于离线自测）")
@@ -141,15 +166,24 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--dry-run", action="store_true", help="只估算要调用多少次、多少提示 token，不调模型、不写文件")
     p.add_argument("--no-cache", action="store_true",
                    help="不读 LLM 缓存（照常写入）：--force 只作废已有记录，缓存命中仍会原样复用旧回复，配合 --no-cache 才会重新采样")
+    p.add_argument("--task", choices=TASK_CHOICES, default="all",
+                   help="任务类型（默认 %(default)s）：generate = 功能规格生成，repair = 缺陷修复（先运行 mutate），"
+                        "all = 两类都处理（修复任务在 mutate 没有产出时给出提示并跳过）")
 
     p = add("evaluate", "评测回复：替换回副本、沙箱编译与测试、归因")
     p.add_argument("--model", nargs="+", required=True, metavar="MODEL", help="要评测的模型（generations 里已有回复）")
     p.add_argument("--levels", "--level", dest="levels", nargs="+", choices=LEVELS, metavar="LEVEL", help="级别（默认全部）")
     p.add_argument("--tag", default="run", help="结果标签，写入 results-<tag>.jsonl（默认 %(default)s）")
     p.add_argument("--allow-missing", action="store_true", help="有样本缺失（生成调用失败、没生成、回复过期）也不算失败")
+    p.add_argument("--task", choices=TASK_CHOICES, default="all",
+                   help="任务类型（默认 %(default)s）：generate = 功能规格生成，repair = 缺陷修复（先运行 mutate），"
+                        "all = 两类都处理（修复任务在 mutate 没有产出时给出提示并跳过）；"
+                        "修复任务的结果写进 results-repair-<tag>.jsonl")
 
     p = add("report", "汇总指标，输出 summary-<tag>.md / .csv 与图")
     p.add_argument("--tag", default="run", help="结果标签（默认 %(default)s）")
+    p.add_argument("--task", choices=TASK_CHOICES, default="all",
+                   help="任务类型（默认 %(default)s）：generate / repair 只汇总该类任务的结果，all = 两类并列（哪一类没有结果文件就只出另一类）")
     p.add_argument("--format", nargs="+", choices=["md", "csv", "svg"], default=["md", "csv", "svg"], dest="formats",
                    help="输出格式（默认全部）")
     p.add_argument("--allow-stale", action="store_true", help="输入哈希对不上的记录也纳入统计（默认排除并在报告里列出）")
@@ -237,6 +271,22 @@ def _cmd_verify(args: argparse.Namespace, ctx: Context, specs: list[Any]) -> boo
     return _print_results(results)
 
 
+def _cmd_mutate(args: argparse.Namespace, ctx: Context, specs: list[Any]) -> bool:
+    ctx.sandbox = _make_sandbox(args)
+    ok = True
+    for s in specs:                      # 每个语料要跑几分钟，做完一个就打印一个
+        ok &= _print_results([stage_mutate(ctx, s, args.levels, max_tries=args.max_tries)])
+    return ok
+
+
+def _cmd_check_mutants(args: argparse.Namespace, ctx: Context, specs: list[Any]) -> bool:
+    ctx.sandbox = _make_sandbox(args)
+    ok = True
+    for s in specs:                      # 每个语料要跑几分钟，做完一个就打印一个
+        ok &= _print_results([stage_check_mutants(ctx, s, args.levels, with_oracle=args.oracle)])
+    return ok
+
+
 def _cmd_describe(args: argparse.Namespace, ctx: Context, specs: list[Any]) -> bool:
     llm = build_llm(args.model, ctx.ws)
     return _print_results([stage_describe(ctx, s, llm, model_name=args.model) for s in specs])
@@ -244,27 +294,45 @@ def _cmd_describe(args: argparse.Namespace, ctx: Context, specs: list[Any]) -> b
 
 def _cmd_generate(args: argparse.Namespace, ctx: Context, specs: list[Any]) -> bool:
     ctx.no_cache = args.no_cache
-    return _print_results(stage_generate(ctx, specs, args.model, args.levels, samples=args.samples,
-                                         temperature=args.temperature, max_tokens=args.max_tokens,
-                                         dry_run=args.dry_run))
+    tasks, notes = resolve_tasks(ctx, specs, args.levels, args.task)
+    for note in notes:
+        print(f"[generate] {note}", flush=True)
+    ok = True
+    for task in tasks:
+        ok &= _print_results(stage_generate(ctx, specs, args.model, args.levels, samples=args.samples,
+                                            temperature=args.temperature, max_tokens=args.max_tokens,
+                                            dry_run=args.dry_run, task=task))
+    return ok
 
 
 def _cmd_evaluate(args: argparse.Namespace, ctx: Context, specs: list[Any]) -> bool:
     ctx.sandbox = _make_sandbox(args)
     ctx.allow_missing = args.allow_missing
-    return _print_results(stage_evaluate(ctx, specs, args.model, args.levels, tag=args.tag))
+    tasks, notes = resolve_tasks(ctx, specs, args.levels, args.task)
+    for note in notes:
+        print(f"[evaluate] {note}", flush=True)
+    ok = True
+    for task in tasks:
+        ok &= _print_results(stage_evaluate(ctx, specs, args.model, args.levels, tag=args.tag, task=task))
+    return ok
 
 
 def _cmd_report(args: argparse.Namespace, ctx: Context, specs: list[Any]) -> bool:
     known = {s.name: s for s in specs}                          # 记录所属语料有 spec 的，多校验一层 spec 摘要
-    res = build_report(ctx.ws, args.tag, specs=known, allow_stale=args.allow_stale, formats=args.formats)
+    res = build_report(ctx.ws, args.tag, specs=known, allow_stale=args.allow_stale, formats=args.formats,
+                       task=args.task)
     print(f"[report] {args.tag}: 记录 {res.n_records} 条，纳入统计 {res.n_used} 条，输入哈希不符 {res.n_stale} 条", flush=True)
+    if len(res.by_task) > 1:
+        print("         " + "；".join(f"{t}：记录 {n['records']} 条，纳入 {n['used']} 条" for t, n in res.by_task.items()),
+              flush=True)
     for reason, n in res.stale_reasons.items():
         print(f"         - {reason}: {n} 条", flush=True)
     if res.n_bad_lines:
         print(f"         结果文件有 {res.n_bad_lines} 条坏行（例如进程被杀时留下的半行），这些样本没有计入", flush=True)
     if res.n_missing:
         print(f"         缺 {res.n_missing} 个样本（生成调用失败 / 没生成 / 回复过期），表里的 n 不完整", flush=True)
+    if res.n_unreliable:
+        print(f"         {res.n_unreliable} 道修复题的变异体不可靠（候选与变异体相同却通过了项目测试），已整题从统计里剔除", flush=True)
     for kind, path in res.paths.items():
         print(f"         {kind}: {path}", flush=True)
     if res.n_records == 0:
@@ -287,7 +355,7 @@ class E2EResult:
     ws: Workspace
     stages: list[StageResult] = field(default_factory=list)
     checks: list[Check] = field(default_factory=list)
-    distributions: dict[str, dict[str, int]] = field(default_factory=dict)   # 模型 -> {类别: 个数}
+    distributions: dict[str, dict[str, int]] = field(default_factory=dict)   # 模型（修复任务加 repair/ 前缀）-> {类别: 个数}
     wrong_modes: dict[str, int] = field(default_factory=dict)                # wrong 模式下各类别的个数
     report: Optional[ReportResult] = None
     seconds: float = 0.0
@@ -300,7 +368,7 @@ class E2EResult:
         lines = ["e2e（mock 后端，mini 夹具）：" + ("全部通过" if self.ok else "有断言不成立")]
         for model, dist in self.distributions.items():
             total = sum(dist.values())
-            lines.append(f"  {model:12s} {total:4d} 个样本  " + ", ".join(f"{k}={v}" for k, v in sorted(dist.items())))
+            lines.append(f"  {model:19s} {total:4d} 个样本  " + ", ".join(f"{k}={v}" for k, v in sorted(dist.items())))
         for c in self.checks:
             lines.append(f"  [{'通过' if c.ok else '失败'}] {c.name}" + (f"：{c.detail}" if c.detail else ""))
         lines.append(f"  用时 {self.seconds:.0f}s，输出在 {self.ws.results}")
@@ -324,6 +392,13 @@ def run_e2e(work_dir: Optional[Path] = None, *, jobs: Optional[int] = None, seed
       两条路径共用同一份崩溃信号集合（``attribute.CRASH_SIGNALS``），所以这项交叉验证检查的是桩的构造与替换、沙箱运行、
       阶段判定是否一致，信号分类规则本身不在检验范围内（由 tests/test_attribute.py 逐条覆盖）；
     * 每个级别的每个目标都出了题（没有被 oracle gate 作废），副本 verify 与 oracle gate 全过；
+    * 缺陷修复任务（mutate → generate --task repair → evaluate --task repair）同样跑 L0–L3，模式多三个：
+      oracle 模式 100% pass 且 restored（候选与该级原函数规范化后相同）；unchanged 模式（原样返回变异体）每个样本都不通过、
+      stage 为 test、unchanged 为真，归因与变异体的 kill_mode 一致的比例不低于 ``E2E_MIN_SAME_MODE``；reformat 模式（原函数换排版、
+      加注释）100% pass、restored 为真、unchanged 为假（规范化比较确实只忽略排版与注释）；touched 模式（变异体加一条无害语句）每个样本
+      都不通过、stage 为 test、unchanged 与 restored 都为假（缺陷还在，改了别处不算「什么也没改」）；broken 模式 100% compile_syntax；
+      wrong 模式每个样本都不通过且类别等于 stub-kill 记录；每个被杀死了变异体的（目标, 级别）都出了题，出题率不低于 90%；
+      ``check-mutants --oracle`` 回放：每个变异体都仍被杀死、没有一个通过，去注释的原函数都通过；
     * 再把所有阶段重跑一遍，必须全部「跳过」（幂等）；
     * 报告文件生成，且没有输入哈希过期的记录。
     """
@@ -362,9 +437,15 @@ def run_e2e(work_dir: Optional[Path] = None, *, jobs: Optional[int] = None, seed
         keep(stage_describe(ctx, spec, build_llm("mock-oracle", ws), model_name="mock-oracle"))
         keep(stage_generate(ctx, [spec], E2E_MODELS, levels_l))
         keep(stage_evaluate(ctx, [spec], E2E_MODELS, levels_l, tag=E2E_TAG))
+        keep(stage_mutate(ctx, spec, levels_l))
+        keep(stage_generate(ctx, [spec], E2E_REPAIR_MODELS, levels_l, task="repair"))
+        keep(stage_evaluate(ctx, [spec], E2E_REPAIR_MODELS, levels_l, tag=E2E_TAG, task="repair"))
         return out
 
     res.stages = run_stages(verbose=True)
+    check = stage_check_mutants(ctx, spec, levels_l, with_oracle=True)     # 回放不是幂等阶段（每次都重新跑沙箱），不放进 run_stages
+    print(check.line(), flush=True)
+    res.stages.append(check)
     # 幂等：再来一遍，全部应当跳过（没有新的输入，就不会再调用模型或沙箱）
     again = run_stages(verbose=False)
     not_skipped = [f"{r.stage}:{r.corpus}" for r in again if not r.skipped]
@@ -407,6 +488,7 @@ def run_e2e(work_dir: Optional[Path] = None, *, jobs: Optional[int] = None, seed
         detail += f"；不一致: {mismatched[:3]}"
     res.checks.append(Check("wrong 全部在测试阶段失败，且类别与 stub-kill 记录一致", bool(wrong) and not mismatched, detail))
 
+    _check_repair(res, ws, spec.name, levels_l)
     res.report = build_report(ws, E2E_TAG, specs={spec.name: spec})
     res.checks.append(Check("报告文件已生成且没有过期记录",
                             {"md", "csv", "svg"} <= set(res.report.paths) and res.report.n_stale == 0
@@ -414,6 +496,59 @@ def run_e2e(work_dir: Optional[Path] = None, *, jobs: Optional[int] = None, seed
                             f"{res.report.n_used}/{res.report.n_records} 条纳入统计"))
     res.seconds = time.monotonic() - t_start
     return res
+
+
+def _check_repair(res: E2EResult, ws: Workspace, corpus_name: str, levels: Sequence[str]) -> None:
+    """缺陷修复任务的 e2e 断言（见 run_e2e 的文档）。"""
+    mutants = [r for lv in levels for r in read_jsonl(ws.mutants_file(corpus_name, lv))]
+    n_pairs = len(load_target_records(ws, corpus_name)) * len(levels)
+    records = read_jsonl(ws.repair_results_file(E2E_TAG))
+    by_model = {m: [r for r in records if r["model"] == m] for m in E2E_REPAIR_MODELS}
+    for m, rows in by_model.items():
+        res.distributions[f"repair/{m}"] = dict(Counter(r["category"] for r in rows))
+    res.checks.append(Check("repair：每个杀死了变异体的（目标, 级别）都出了题",
+                            bool(mutants) and all(len(rows) == len(mutants) for rows in by_model.values()),
+                            f"每个模型应有 {len(mutants)} 条记录"))
+    res.checks.append(Check("repair：出题率不低于 90%（有变异体的（目标, 级别）占比）",
+                            len(mutants) >= 0.9 * n_pairs, f"{len(mutants)}/{n_pairs}"))
+    oracle, broken = by_model["mock-oracle"], by_model["mock-broken"]
+    wrong, unchanged = by_model["mock-wrong"], by_model["mock-unchanged"]
+    reformat, touched = by_model["mock-reformat"], by_model["mock-touched"]
+    res.checks.append(Check("repair：oracle 100% pass 且 restored",
+                            bool(oracle) and all(r["category"] == "pass" and r["restored"] and not r["unchanged"]
+                                                 for r in oracle),
+                            f"{sum(r['category'] == 'pass' for r in oracle)}/{len(oracle)}"))
+    same_mode = sum(r["category"] == r["kill_mode"] for r in unchanged)
+    res.checks.append(Check(
+        "repair：unchanged 100% 不通过（stage 为 test、归因属于杀死方式）且 unchanged=True",
+        bool(unchanged) and all(r["category"] != "pass" and r["stage"] == "test" and r["category"] in KILL_MODES
+                                and r["unchanged"] and not r["restored"] for r in unchanged),
+        f"{len(unchanged)} 条，归因与变异体的 kill_mode 一致 {same_mode} 条"))
+    res.checks.append(Check(
+        f"repair：unchanged 的归因与变异体的 kill_mode 一致的比例不低于 {E2E_MIN_SAME_MODE:.0%}",
+        bool(unchanged) and same_mode >= E2E_MIN_SAME_MODE * len(unchanged), f"{same_mode}/{len(unchanged)}"))
+    res.checks.append(Check(
+        "repair：reformat（原函数换排版加注释）100% pass 且 restored、unchanged 为假",
+        bool(reformat) and all(r["category"] == "pass" and r["restored"] and not r["unchanged"] for r in reformat),
+        f"{sum(r['category'] == 'pass' for r in reformat)}/{len(reformat)}"))
+    res.checks.append(Check(
+        "repair：touched（变异体加一条无害语句）100% 不通过（stage 为 test），unchanged 与 restored 都为假",
+        bool(touched) and all(r["category"] != "pass" and r["stage"] == "test" and r["category"] in KILL_MODES
+                              and not r["unchanged"] and not r["restored"] for r in touched),
+        f"{len(touched)} 条，{sum(r['category'] != 'pass' for r in touched)} 条不通过"))
+    res.checks.append(Check("repair：broken 100% compile_syntax",
+                            bool(broken) and all(r["category"] == "compile_syntax" for r in broken),
+                            f"{sum(r['category'] == 'compile_syntax' for r in broken)}/{len(broken)}"))
+    bad = [r["task_id"] for r in wrong if r["stage"] != "test" or r["category"] != r.get("stub_kill_mode")]
+    res.checks.append(Check("repair：wrong 全部在测试阶段失败，且类别与 stub-kill 记录一致", bool(wrong) and not bad,
+                            f"{len(wrong)} 条" + (f"；不一致: {bad[:3]}" if bad else "")))
+    check = read_json(ws.mutants_check_file(corpus_name)) or {}
+    total = check.get("total") or {}
+    res.checks.append(Check(
+        "repair：check-mutants 回放：变异体都仍被杀死、没有一个通过，去注释的原函数都通过",
+        bool(total.get("replayed")) and total.get("replayed") == total.get("killed") == len(mutants)
+        and not total.get("passed") and not total.get("oracle_failed"),
+        f"回放 {total.get('replayed', 0)}，仍被杀死 {total.get('killed', 0)}，杀死方式一致 {total.get('same_mode', 0)}"))
 
 
 def _cmd_e2e(args: argparse.Namespace, ctx: Context, specs: list[Any]) -> bool:
@@ -441,8 +576,8 @@ def _specs_for(args: argparse.Namespace) -> list[Any]:
 
 
 _COMMANDS = {"prepare": _cmd_prepare, "coverage": _cmd_coverage, "targets": _cmd_targets, "obfuscate": _cmd_obfuscate,
-             "verify": _cmd_verify, "describe": _cmd_describe, "generate": _cmd_generate, "evaluate": _cmd_evaluate,
-             "report": _cmd_report, "e2e": _cmd_e2e}
+             "verify": _cmd_verify, "mutate": _cmd_mutate, "check-mutants": _cmd_check_mutants, "describe": _cmd_describe,
+             "generate": _cmd_generate, "evaluate": _cmd_evaluate, "report": _cmd_report, "e2e": _cmd_e2e}
 #: 不需要读语料 spec、也不预先建工作区目录的命令（e2e 自己管理工作目录）
 _NO_SPEC = {"e2e"}
 

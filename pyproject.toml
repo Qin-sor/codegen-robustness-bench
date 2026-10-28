@@ -1,6 +1,6 @@
 [project]
 name = "codegen-robustness-bench"
-version = "0.2.0"
+version = "0.3.0"
 description = "大模型代码生成鲁棒性评测平台：用不同强度的 C 代码混淆检验模型是靠理解还是靠记忆"
 readme = "README.md"
 requires-python = ">=3.10"
