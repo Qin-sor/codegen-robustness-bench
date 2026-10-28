@@ -226,7 +226,7 @@ Variables used only by tests and CI are listed in Section 11.
 
 ## 5. Obfuscation levels
 
-Each level includes all the transformations of the levels below it. All three kinds of transformation are determined by `--seed`, so the same seed gives the same result (the rename table of symbol renaming also depends on the host's system headers; see the last item of Section 8);
+Each level includes all the transformations of the levels below it. All three kinds of transformation are determined by `--seed`, so the same seed gives the same result (the rename table of symbol renaming also depends on the host's system headers; see item 9 of Section 8);
 every copy must pass the project's own tests (verify).
 
 | Level | Transformation | Notes |
