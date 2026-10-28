@@ -2,15 +2,15 @@
  "schema_version": 1,
  "corpus": "tinyexpr",
  "commit": "ba2e32bbcc2d1e644a7e132d24c2f542821cabe0",
- "created": "2026-10-27T17:15:55+00:00",
+ "created": "2026-10-27T23:07:01+00:00",
  "inputs": {
   "spec": "9e56886c54c73a6a",
   "tree": "2b917ab30eddd78d",
   "version": 2,
-  "code": "df5f6949d76467ab",
+  "code": "7295a5d498406762",
   "env": "fe40f23a8559c0bb"
  },
- "input_hash": "1cb746942140e9c3",
+ "input_hash": "dfb95ef1751c35cb",
  "ok": true,
  "rc": 0,
  "timed_out": false,
@@ -22,7 +22,7 @@
   "pids": 256,
   "timeout_s": 120
  },
- "duration_s": 1.27,
+ "duration_s": 1.32,
  "stdout_tail": "\tResults       pass:158   fail: 0      0ms\n\tSyntax        pass:65   fail: 0      0ms\n\tNaNs          pass:55   fail: 0      0ms\n\tINFs          pass:55   fail: 0      0ms\n\tVariables     pass:40   fail: 0      0ms\n\tFunctions     pass:4406   fail: 0      0ms\n\tDynamic       pass:44   fail: 0      0ms\n\tClosure       pass:17   fail: 0      0ms\n\tOptimize      pass:12   fail: 0      0ms\n\tPow           pass:51   fail: 0      0ms\n\tCombinatorics pass:52   fail: 0      0ms\n\tLogic         pass:130   fail: 0      0ms\n\tDepth         pass: 8   fail: 0      0ms\n\tNumber        pass:5025   fail: 0      2ms\n\tLocale        no comma-decimal locale installed, skipping\npass: 0   fail: 0      0ms\nALL TESTS PASSED (10118/10118)\n\tResults       pass:162   fail: 0      0ms\n\tSyntax        pass:65   fail: 0      0ms\n\tNaNs          pass:55   fail: 0      0ms\n\tINFs          pass:55   fail: 0      0ms\n\tVariables     pass:40   fail: 0      0ms\n\tFunctions     pass:4406   fail: 0      0ms\n\tDynamic       pass:44   fail: 0      0ms\n\tClosure       pass:17   fail: 0      0ms\n\tOptimize      pass:12   fail: 0      0ms\n\tPow           pass:57   fail: 0      0ms\n\tCombinatorics pass:52   fail: 0      0ms\n\tLogic         pass:130   fail: 0      0ms\n\tDepth         pass: 8   fail: 0      0ms\n\tNumber        pass:5025   fail: 0      2ms\n\tLocale        no comma-decimal locale installed, skipping\npass: 0   fail: 0      0ms\nALL TESTS PASSED (10128/10128)\n",
  "stderr_tail": ""
 }

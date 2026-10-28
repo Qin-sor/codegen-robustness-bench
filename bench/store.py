@@ -47,6 +47,7 @@ __all__ = [
     "spec_digest",
     "now_iso",
     "safe_name",
+    "REPAIR_PREFIX",
     "atomic_write",
     "read_json",
     "write_json",
@@ -99,6 +100,19 @@ _SAFE_RE = re.compile(r"[^A-Za-z0-9._-]+")
 def safe_name(text: str) -> str:
     """把模型名、tag 之类变成能安全放进文件名的形式。"""
     return _SAFE_RE.sub("_", text).strip("._") or "_"
+
+
+#: 缺陷修复任务的文件名在生成任务的文件名前面加 ``repair-``（``results-repair-<tag>.jsonl``、``generations-repair-<model>.jsonl``……），
+#: 生成任务的 tag / 模型名若也以它开头（``repair-x``），两类任务的文件就会撞名，一类的评测结果被另一类当成范围内的过期记录丢掉
+REPAIR_PREFIX = "repair-"
+
+
+def _plain_name(text: str, what: str) -> str:
+    """生成任务的 tag / 模型名：``safe_name`` 之后不许以 ``repair-`` 开头（见 :data:`REPAIR_PREFIX`）。"""
+    name = safe_name(text)
+    if name.startswith(REPAIR_PREFIX):
+        raise ValueError(f"{what} {text!r} 以 {REPAIR_PREFIX!r} 开头，会与缺陷修复任务的文件名撞名（results-repair-<tag>.jsonl 等），请换一个名字")
+    return name
 
 
 # ----------------------------------------------------------------------
@@ -175,23 +189,52 @@ class Workspace:
         return self.results / "tasks.jsonl"
 
     def generations_file(self, model: str) -> Path:
-        return self.results / f"generations-{safe_name(model)}.jsonl"
+        return self.results / f"generations-{_plain_name(model, '模型名')}.jsonl"
 
     def generation_failures_file(self, model: str) -> Path:
         """generate 阶段重试用尽仍失败的样本（task_id、sample_idx、原因）；成功补上后会从这里删掉。"""
-        return self.results / f"generation-failures-{safe_name(model)}.jsonl"
+        return self.results / f"generation-failures-{_plain_name(model, '模型名')}.jsonl"
 
     def results_file(self, tag: str) -> Path:
-        return self.results / f"results-{safe_name(tag)}.jsonl"
+        return self.results / f"results-{_plain_name(tag, 'tag')}.jsonl"
 
     def completeness_file(self, tag: str) -> Path:
         """evaluate 写的完整性记录：每个（模型, 级别, 语料）应有多少样本、实际评测了多少、缺多少。"""
-        return self.results / f"completeness-{safe_name(tag)}.json"
+        return self.results / f"completeness-{_plain_name(tag, 'tag')}.json"
 
     def summary_file(self, tag: str, ext: str) -> Path:
         """report 的输出：summary-<tag>.md / .csv，图是 fig-<tag>.png / .svg（ext 带点号）。"""
         stem = "fig" if ext.lower() in (".png", ".svg") else "summary"
         return self.results / f"{stem}-{safe_name(tag)}{ext}"
+
+    # -- 缺陷修复任务的数据文件（docs/设计-缺陷修复任务.md §7） ----------------
+    def mutants_file(self, corpus: str, level: str) -> Path:
+        """mutate 阶段的产出：某语料某一级副本上选定的变异体，一个（目标, 级别）一行（只含被杀死的）。"""
+        return self.results / f"mutants-{corpus}-{level}.jsonl"
+
+    def mutants_summary_file(self, corpus: str) -> Path:
+        """mutate 阶段的汇总：各级的输入哈希、出题数、放弃数及原因、算子分布、same_operator_as_L0 比例等。"""
+        return self.results / f"mutants-{corpus}.summary.json"
+
+    def mutants_check_file(self, corpus: str) -> Path:
+        """``check-mutants`` 的产出：mutate 选定的变异体在沙箱里回放复核的结果（有没有被稳定地杀死、杀死方式有没有变）。"""
+        return self.results / f"mutants-{corpus}.check.json"
+
+    @property
+    def repair_tasks_file(self) -> Path:
+        return self.results / "tasks-repair.jsonl"
+
+    def repair_generations_file(self, model: str) -> Path:
+        return self.results / f"generations-repair-{safe_name(model)}.jsonl"
+
+    def repair_generation_failures_file(self, model: str) -> Path:
+        return self.results / f"generation-failures-repair-{safe_name(model)}.jsonl"
+
+    def repair_results_file(self, tag: str) -> Path:
+        return self.results / f"results-repair-{safe_name(tag)}.jsonl"
+
+    def repair_completeness_file(self, tag: str) -> Path:
+        return self.results / f"completeness-repair-{safe_name(tag)}.json"
 
 
 # ----------------------------------------------------------------------

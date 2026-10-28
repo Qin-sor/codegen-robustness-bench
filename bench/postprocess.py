@@ -30,6 +30,10 @@ libclang 一律按默认的 GNU C 标准解析，不跟随任务的 ``-std``：�
 和语言标准有关的诊断（c89 下的 ``//`` 注释、``inline`` 等）留给后面 gcc 的编译阶段去报。
 
 libclang 找不到编译器内置头时，解析前借 ``clangcfg.builtin_include_args()`` 补上。
+
+缺陷修复任务（docs/设计-缺陷修复任务.md）的候选同样走 ``process_reply``（``RepairTask`` 也有 ``obf_name`` / ``obf_signature`` /
+``context`` / ``includes``）。候选与变异体（``unchanged``）、候选与该级原函数（``restored``）是否相同由
+``bench.similarity.normalized_equal`` 判定（纯词法比较，放在词法器所在的模块里）。
 """
 from __future__ import annotations
 
@@ -47,7 +51,7 @@ import clang.cindex as ci
 from bench import clangcfg
 from bench.clangcfg import builtin_include_args
 from bench.extract import Dependencies, strip_c_comments
-from bench.prompt import FORBIDDEN_CALLS, Task, format_context
+from bench.prompt import FORBIDDEN_CALLS, RepairTask, Task, format_context
 from bench.vocab import ISSUES as _ISSUES
 
 log = logging.getLogger(__name__)
@@ -627,13 +631,14 @@ def normalize(
 
 def process_reply(
     reply_text: str,
-    task: Task,
+    task: Task | RepairTask,
     *,
     forbidden_includes: bool = True,
     finish_reason: str | None = None,
     allow_directives: bool = False,
 ) -> Candidate:
-    """extract_code + normalize：回复文本 → Candidate，目标函数名 / 期望签名 / 上下文都取自 task。
+    """extract_code + normalize：回复文本 → Candidate，目标函数名 / 期望签名 / 上下文都取自 task（生成任务的 Task
+    或缺陷修复任务的 RepairTask，只用到 ``obf_name`` / ``obf_signature`` / ``context`` / ``includes``）。
 
     ``task.includes`` 非空时它就是 prompt 里告诉模型「已经包含」的头文件，优先于 ``task.context.includes``
     （与 ``build_messages`` 一致），所以这里按它判断 ``added_include`` 并拼进 libclang 前缀。
@@ -647,3 +652,4 @@ def process_reply(
     if chosen is not None and not chosen.closed and finish_reason != "stop" and "truncated" not in cand.issues:
         cand.issues = sorted([*cand.issues, "truncated"], key=ISSUES.index)
     return cand
+

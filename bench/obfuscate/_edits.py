@@ -8,6 +8,8 @@
   新文本的各个组成部分始终取自原文，不存在偏移失效；
 * :func:`check_laminar` / :func:`render`：保证改写互相嵌套或不相交，并渲染成新文本（每处改写保持原文总行数不变）；
 * :func:`rollback_invalid`：改写后重新解析必须零 error，有 error 时按二分法回滚出错的改写；
+* :func:`match_close` / :class:`MacroIntervals`：libclang 记号表上的括号配对，以及最外层宏调用区间的合并与冲突判定
+  （structure 的 ``_FileCtx`` 与缺陷修复任务的 ``mutate`` 共用；semantic 用自己的正则记号表，不在其中）；
 * :class:`FileStats` / :func:`empty_stats` / :func:`merge_stats`：逐文件统计与汇总；
 * :class:`RecursionGuard`：渲染深层嵌套的改写时临时调高递归上限；
 * :class:`Unit` / :class:`Parser`：libclang 解析，头文件单独解析不过（靠别的头才自洽）时借一个包含它的项目 .c 当宿主；
@@ -36,7 +38,7 @@ log = logging.getLogger(__name__)
 __all__ = [
     "SOURCE_SUFFIXES", "Edit", "check_laminar", "render", "rollback_invalid", "FileStats", "empty_stats",
     "merge_stats", "RecursionGuard", "Unit", "Parser", "file_name", "plan_files", "host_map", "run_files",
-    "safe_to_write", "libclang_args",
+    "safe_to_write", "libclang_args", "OPEN_TO_CLOSE", "match_close", "MacroIntervals",
 ]
 
 SOURCE_SUFFIXES = (".c", ".h")
@@ -163,6 +165,66 @@ class RecursionGuard:
 
     def __exit__(self, *exc: object) -> None:
         sys.setrecursionlimit(self.old)
+
+
+# ---------------------------------------------------------------------------
+# 记号表上的括号配对与宏调用区间
+# ---------------------------------------------------------------------------
+OPEN_TO_CLOSE = {"(": ")", "[": "]", "{": "}"}
+
+
+def match_close(tokens: Sequence[str], i: int) -> int | None:
+    """``tokens[i]`` 是 ``(`` ``[`` ``{`` 之一，返回与之配对的右括号下标；括号不配对（或深度回不到 0）返回 None。"""
+    stack: list[str] = []
+    for j in range(i, len(tokens)):
+        t = tokens[j]
+        if t in OPEN_TO_CLOSE:
+            stack.append(OPEN_TO_CLOSE[t])
+        elif t in (")", "]", "}"):
+            if not stack or stack.pop() != t:
+                return None
+            if not stack:
+                return j
+    return None
+
+
+class MacroIntervals:
+    """一个文件里「最外层宏调用」的字节区间：嵌套和重叠的合并成一个，按起点排好序，供二分查找。
+
+    宏展开出来的代码、宏调用的实参，都不能按偏移改写（改了展开结果就变了），所以 L2 / L3 / 变异算子找到的节点范围要先和它们比一下。
+    """
+
+    def __init__(self, raw: Iterable[tuple[int, int]]) -> None:
+        merged: list[tuple[int, int]] = []
+        for s, e in sorted(raw):
+            if merged and s < merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+            else:
+                merged.append((s, e))
+        self.intervals = merged
+        self._starts = [a for a, _ in merged]
+
+    def __bool__(self) -> bool:
+        return bool(self.intervals)
+
+    def conflicts(self, s: int, e: int, *, allow_equal: bool = False) -> bool:
+        """[s, e) 与某个最外层宏调用冲突：部分重叠，或整个落在宏调用里面（宏实参）。
+
+        宏调用整个落在 [s, e) 内部不算冲突（``x = MAX(a, b);`` 整句可以删，``if (ISDIGIT(c))`` 的条件可以整个取反）；
+        两者范围恰好相等时，``allow_equal`` 为真才放行：「把整个宏调用包起来」放行，「宏生成的整条语句」不放行。"""
+        iv = self.intervals
+        i = max(bisect.bisect_right(self._starts, s) - 1, 0)
+        while i < len(iv) and iv[i][0] < e:
+            ms, me = iv[i]
+            i += 1
+            if me <= s:
+                continue
+            if s <= ms and me <= e:
+                if (ms, me) == (s, e) and not allow_equal:
+                    return True
+                continue
+            return True
+        return False
 
 
 # ---------------------------------------------------------------------------

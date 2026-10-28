@@ -14,7 +14,7 @@
   按指数退避重试（默认重试 5 次），其它 4xx 立即报错；每次真实调用的 token 用量追加写
   ``results/usage.jsonl``（命中缓存的不记，不产生费用）。API key 只从环境变量读，
   不放在实例属性里，也不进日志、缓存、结果文件。
-* ``MockLLM``：离线自测用，四种模式 oracle / broken / wrong / empty，见类的文档。
+* ``MockLLM``：离线自测用，五种模式 oracle / broken / wrong / empty / unchanged（最后一种只用于缺陷修复任务），见类的文档。
 
 多样本（``generate --samples N``）：temperature > 0 时，给每个样本传不同的 seed（如 sample_idx）。seed 参与缓存键，
 所以每个样本单独请求、单独缓存；DeepSeek 预设不把 seed 发给 API（文档里没有这个参数），样本之间的差异来自
@@ -82,6 +82,8 @@ __all__ = [
     "default_cache_dir",
     "default_usage_path",
     "mock_wrong_code",
+    "mock_reformat_code",
+    "mock_touched_code",
     "mock_broken_code",
 ]
 
@@ -799,7 +801,8 @@ PRESETS: dict[str, ModelPreset] = {
 def make_llm(name: str, *, oracle: dict[str, str] | None = None, **kwargs: Any) -> LLM:
     """按 --model 的取值构造 LLM。
 
-    ``mock-oracle`` / ``mock-broken`` / ``mock-wrong`` / ``mock-empty`` → MockLLM（oracle 参数给 oracle 模式用）；
+    ``mock-oracle`` / ``mock-broken`` / ``mock-wrong`` / ``mock-empty`` / ``mock-unchanged`` / ``mock-reformat`` / ``mock-touched`` →
+    MockLLM（oracle 参数给 oracle 和 reformat 模式用）；
     ``PRESETS`` 里的名字 → OpenAICompat（kwargs 原样传给构造函数，如 cache=None、usage_path=...）。
     """
     if name.startswith("mock-"):
@@ -812,7 +815,7 @@ def make_llm(name: str, *, oracle: dict[str, str] | None = None, **kwargs: Any) 
 
 # --------------------------------------------------------------------------- MockLLM
 
-MOCK_MODES = ("oracle", "broken", "wrong", "empty")
+MOCK_MODES = ("oracle", "broken", "wrong", "empty", "unchanged", "reformat", "touched")
 
 # describe 阶段（meta["purpose"] == "describe"）不论什么模式都返回这段固定描述：
 # 全部用常见英文词写成，不含任何项目标识符，长度在 80–250 词之间，所以一定能通过泄漏检查与长度检查。
@@ -857,6 +860,22 @@ def mock_wrong_code(signature: str | None) -> str:
     return f"{sig}\n{{\n    {rtype} bench_zero_ = {{0}};\n    return bench_zero_;\n}}"
 
 
+def mock_reformat_code(code: str) -> str:
+    """同一个函数换了排版、加了注释：行首的缩进换成制表符（每 4 个空格一个），函数体第一个 ``{`` 后面加一条块注释。
+    记号序列不变，所以 ``normalized_equal`` 认它与原函数相同（restored），项目测试照常通过。只用块注释：C89 不认 ``//``。"""
+    import re
+    body = re.sub(r"(?m)^( +)", lambda m: "\t" * max(1, len(m.group(1)) // 4), code.strip("\n"))
+    head, brace, rest = body.partition("{")
+    return f"{head}{brace} /* reformatted by the mock model */{rest}" if brace else body
+
+
+def mock_touched_code(code: str) -> str:
+    """变异体上加一条无害的空语句：缺陷还在（项目测试照样失败），但候选与变异体、与原函数都不再规范化相同
+    （``unchanged`` 与 ``restored`` 都为假），用来确认这两个判定没有把「改了别处、缺陷还在」的候选算成什么也没改。"""
+    head, brace, rest = code.strip("\n").partition("{")
+    return f"{head}{brace} (void)0;{rest}" if brace else code
+
+
 def mock_broken_code(signature: str | None) -> str:
     """签名正确、函数体缺分号且括号不配对的函数；gcc 一定报 ``expected ...``（归因为 compile_syntax）。"""
     sig = (signature or "int mock_broken(void)").strip().rstrip(";{ \t\n")
@@ -871,9 +890,20 @@ class MockLLM(LLM):
     * ``oracle``：返回 ``oracle[meta["task_id"]]``（该任务在对应混淆级下的原函数定义）包在 ```c 代码块里；
       找不到任务就抛 MockLLMError（宁可大声失败，不悄悄返回错代码）。
     * ``broken``：返回签名正确、但缺分号且括号不配对的函数（签名取自 ``meta["obf_signature"]``，
-      没有就从 oracle 代码的函数头取，再没有用占位签名）。
+      没有就从 oracle 代码的函数头取，再没有取 ``meta["mutant_code"]`` 的函数头，最后用占位签名）。
     * ``wrong``：返回签名正确、函数体为「返回零值 / 空体」的函数，能编译，但会让项目测试失败。
     * ``empty``：返回一段没有代码块的文字。
+    * ``unchanged``：只用于缺陷修复任务，原样返回 ``meta["mutant_code"]``（注入缺陷后的函数）包在 ```c 代码块里，
+      也就是「模型什么也没改」；项目测试必然失败，结果记录里 ``unchanged`` 必为真。meta 里 ``task`` 不是 ``"repair"``
+      或没有非空的 ``mutant_code`` 就抛 MockLLMError。
+    * ``reformat``：只用于缺陷修复任务，返回该级原函数（同 oracle）换了排版、加了注释的版本：必须通过项目测试，
+      ``restored`` 为真、``unchanged`` 为假——检验「只忽略排版与注释」的规范化比较确实把它认作逐字还原。
+    * ``touched``：只用于缺陷修复任务，返回变异体加一条无害的空语句：缺陷还在，项目测试必然失败，
+      但 ``unchanged`` 与 ``restored`` 都为假——检验「改了别处、缺陷还在」不会被算成什么也没改。
+
+    缺陷修复任务（docs/设计-缺陷修复任务.md）靠 ``meta["task"] == "repair"`` 区分，meta 里要带 ``mutant_code``（``unchanged`` 用）
+    和 ``obf_signature``；oracle 模式对修复任务返回该级的原函数（``oracle`` 字典里以修复任务的 ``task_id`` 为键），
+    必须 100% 通过。broken / wrong 对修复任务的回复与生成任务一样（签名正确的语法错误函数 / 零值桩）。
 
     ``meta["purpose"] == "describe"`` 时不论什么模式都返回固定的功能规格 ``MOCK_DESCRIPTION``，
     这样 describe 阶段在 mock 后端下也能走通。
@@ -898,6 +928,9 @@ class MockLLM(LLM):
         code = self.oracle.get(meta.get("task_id"))
         if code and "{" in code:
             return code.split("{", 1)[0].strip() or None
+        mutant = meta.get("mutant_code")   # 修复任务：变异只发生在函数体里，函数头与原函数相同
+        if isinstance(mutant, str) and "{" in mutant:
+            return mutant.split("{", 1)[0].strip() or None
         return None
 
     def _oracle_code(self, meta: Mapping[str, Any]) -> str:
@@ -908,6 +941,17 @@ class MockLLM(LLM):
             return self.oracle[task_id]
         except KeyError:
             raise MockLLMError(f"oracle 里没有任务 {task_id!r}（共 {len(self.oracle)} 个任务）") from None
+
+    @staticmethod
+    def _mutant_code(meta: Mapping[str, Any]) -> str:
+        """unchanged 模式的回复内容：修复任务 meta 里的 ``mutant_code``，原样返回。"""
+        if meta.get("task") != "repair":
+            raise MockLLMError("unchanged / touched 模式只用于缺陷修复任务：meta['task'] 必须是 'repair'"
+                               f"（实际是 {meta.get('task')!r}）")
+        code = meta.get("mutant_code")
+        if not isinstance(code, str) or not code.strip():
+            raise MockLLMError("unchanged / touched 模式需要 meta['mutant_code']（注入缺陷后的函数，非空字符串）")
+        return code
 
     def chat(
         self,
@@ -923,6 +967,15 @@ class MockLLM(LLM):
             text = MOCK_DESCRIPTION
         elif self.mode == "oracle":
             text = _fence_c(self._oracle_code(meta))
+        elif self.mode == "unchanged":
+            text = _fence_c(self._mutant_code(meta))
+        elif self.mode == "touched":
+            text = _fence_c(mock_touched_code(self._mutant_code(meta)))
+        elif self.mode == "reformat":
+            if meta.get("task") != "repair":
+                raise MockLLMError("reformat 模式只用于缺陷修复任务：meta['task'] 必须是 'repair'"
+                                   f"（实际是 {meta.get('task')!r}）")
+            text = _fence_c(mock_reformat_code(self._oracle_code(meta)))
         elif self.mode == "broken":
             text = _fence_c(mock_broken_code(self._signature(meta)))
         elif self.mode == "wrong":

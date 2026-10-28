@@ -1,5 +1,9 @@
 """流水线各阶段（设计文档 §2）：prepare → coverage → targets → obfuscate → verify → describe → generate → evaluate → report。
 
+缺陷修复任务（docs/设计-缺陷修复任务.md）在 verify 之后多一个 ``mutate`` 阶段（``stage_mutate``）：在每一级副本的目标函数里注入一个
+被项目测试抓住的缺陷；``generate`` / ``evaluate`` 用 ``task="repair"`` 处理修复任务（``plan_repair_tasks`` 出题），
+与生成任务共用同一套实现，只是出题、提示词、数据文件名和结果记录里的几个字段不同（见 :class:`TaskKind`）。
+
 每个阶段是一个 ``stage_*`` 函数，吃 :class:`Context`（工作区、沙箱、并发度、种子），返回 :class:`StageResult`
 （或它的列表）。cli.py 只负责解析参数和调用这里的函数，e2e 自测和单元测试也直接调用它们。
 
@@ -21,6 +25,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
@@ -28,42 +33,55 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Iterable, Iterator, Optional, Sequence, TypeVar
 
-from bench import corpus
+from bench import clangcfg, corpus
 from bench.attribute import attribute
 from bench.corpus import CorpusSpec
 from bench.coverage import function_exec_counts
 from bench.describe import DESCRIBE_PROMPT_DIGEST, LeakChecker, describe_detailed
 from bench.extract import FunctionTarget, locate
 from bench.llm import LLM, Cache, LLMError, LLMHTTPError, MissingAPIKeyError, chat_with_meta, estimate_tokens, make_llm
+from bench.metrics import complete_targets, uniform_targets, unreliable_tasks
+from bench.mutate import DEFAULT_MAX_TRIES, MutantSearch, analyze, choose_for_levels, reference_for, strip_function_comments
 from bench.obfuscate import LEVELS, load_obf_result, obfuscate
 from bench.postprocess import Candidate, has_policy_directives, process_reply
-from bench.prompt import PROMPT_DIGEST, PROMPT_VERSION, Task, build_messages
+from bench.prompt import (
+    PROMPT_DIGEST, PROMPT_VERSION, REPAIR_PROMPT_DIGEST, REPAIR_PROMPT_VERSION, RepairTask, Task, build_messages,
+    build_repair_messages, prune_context,
+)
 from bench.provenance import code_digest, sandbox_digest, sandbox_identity
 from bench.runner import EvalResult, evaluate, read_function
-from bench.similarity import normalized_similarity
+from bench.similarity import lex, normalized_equal, normalized_similarity
 from bench.store import (
     SCHEMA_VERSION, Workspace, append_jsonl, digest, now_iso, read_json, read_jsonl, spec_digest, write_json,
     write_jsonl,
 )
 from bench.targets import TargetFilter, select
+from bench.vocab import KILL_MODES, MUTATION_OPERATORS
 
 log = logging.getLogger(__name__)
 
 __all__ = [
-    "DEFAULT_SEED", "STAGE_VERSIONS", "StageError", "Context", "StageResult", "PlannedTask",
-    "stage_prepare", "stage_coverage", "stage_targets", "stage_obfuscate", "stage_verify", "stage_describe",
-    "stage_generate", "stage_evaluate", "load_targets", "load_target_records", "load_descriptions",
-    "load_generations", "plan_tasks", "build_llm", "project_names", "run_ordered",
+    "DEFAULT_SEED", "STAGE_VERSIONS", "TASKS", "StageError", "Context", "StageResult", "PlannedTask", "TaskKind",
+    "TASK_KINDS", "stage_prepare", "stage_coverage", "stage_targets", "stage_obfuscate", "stage_verify", "stage_mutate",
+    "stage_check_mutants", "stage_describe", "stage_generate", "stage_evaluate", "load_targets", "load_target_records", "load_descriptions",
+    "load_generations", "load_mutants", "plan_tasks", "plan_repair_tasks", "resolve_tasks", "repair_inputs_present",
+    "build_llm", "project_names", "run_ordered",
 ]
 
 DEFAULT_SEED = 20261027
 
 #: 各阶段的版本号：阶段的产出语义变了就加一，旧的结果文件随之失效（代码内容的变化另由 code_digest 覆盖）
 STAGE_VERSIONS = {"prepare": 2, "coverage": 2, "targets": 2, "oracle_gate": 2, "describe": 2, "generate": 2,
-                  "evaluate": 2}
+                  "evaluate": 2, "mutate": 1}
+
+#: 任务类型（``--task`` 的取值是它们加 ``all``）：generate 是功能规格生成任务，repair 是缺陷修复任务
+TASKS = ("generate", "repair")
 
 #: 没有 oracle gate 结果的混淆副本不能用来出题（设计文档 §6.1）
 GATE_MODEL = "oracle-gate"
+
+#: ``check-mutants`` 回放变异体时走 evaluate 用的模型名（只出现在 EvalResult 里，不进任何数据文件）
+REPLAY_MODEL = "mutation-replay"
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -466,6 +484,239 @@ def _run_gate(ctx: Context, spec: CorpusSpec, level: str, obf: dict, targets: li
 
 
 # ----------------------------------------------------------------------
+# mutate：缺陷修复任务的变异体（docs/设计-缺陷修复任务.md §3、§4、§7）
+# ----------------------------------------------------------------------
+@dataclass
+class _LevelOutcome:
+    """一个（目标, 级别）在 mutate 阶段的结果。``search`` 为 None 表示没有进入搜索（副本无效、gate 没过、找不到目标）。"""
+
+    outcome: str                    # killed / no_sites / exhausted / gave_up / strip_unsafe / copy_invalid / oracle_failed / not_relocated
+    search: Optional[MutantSearch] = None
+
+
+def load_mutants(ws: Workspace, corpus_name: str, level: str) -> tuple[Optional[dict], dict[str, dict]]:
+    """某语料某一级的变异体：返回（汇总里该级的条目, {target_id: 记录}）。汇总文件或该级条目缺失时条目为 None。"""
+    summary = read_json(ws.mutants_summary_file(corpus_name))
+    levels = summary.get("levels") if isinstance(summary, dict) else None
+    entry = levels.get(level) if isinstance(levels, dict) else None
+    recs = {r["target_id"]: r for r in read_jsonl(ws.mutants_file(corpus_name, level)) if r.get("target_id")}
+    return (entry if isinstance(entry, dict) else None), recs
+
+
+def _mutate_inputs(ctx: Context, spec: CorpusSpec, root: Path, ids_hash: str, max_tries: int, recheck: bool) -> dict:
+    """mutate 各级共有的输入：spec、原始树、目标集、种子、尝试上限、是否复核、阶段版本与代码摘要、沙箱（含资源上限：超时会决定 kill 结果）、
+    宿主 libclang 环境（位点识别依赖它）。出题（``plan_repair_tasks``）使用变异体时按同一个公式重算一遍，对不上就拒绝。"""
+    return {"spec": spec_digest(spec), "pristine": _tree16(root), "targets": ids_hash, "seed": ctx.seed,
+            "max_tries": max_tries, "recheck": recheck, "version": STAGE_VERSIONS["mutate"], "code": code_digest("mutate"),
+            "env": ctx.env(full=True), "clang": clangcfg.environment(), "strip_comments": True}
+
+
+def _four_level_stats(ws: Workspace, corpus_name: str, target_ids: Sequence[str]) -> dict[str, int]:
+    """四级都选出了变异体的目标数，以及其中四级算子相同 / 四级是同一个位点的个数（附录 §4 / §6）。
+    判定函数与报告共用（``metrics.uniform_targets``），只是这里读的是 mutants 文件。"""
+    ops: dict[str, dict[str, str]] = {}
+    sites: dict[str, dict[str, bool]] = {}
+    for lv in LEVELS:
+        for r in read_jsonl(ws.mutants_file(corpus_name, lv)):
+            tid = str(r.get("target_id"))
+            ops.setdefault(tid, {})[lv] = str(r.get("operator"))
+            sites.setdefault(tid, {})[lv] = r.get("same_site_as_L0") is True
+    wanted = set(target_ids)
+    ops = {k: v for k, v in ops.items() if k in wanted}
+    sites = {k: v for k, v in sites.items() if k in wanted}
+    full = complete_targets(ops)
+    return {"n_targets": len(wanted), "n_all_levels": len(full), "n_same_operator": len(uniform_targets(ops)),
+            "n_same_site": sum(1 for per in complete_targets(sites).values() if all(per.values()))}
+
+
+def _mutate_entry(ihash: str, inputs: dict, n_targets: int, outcomes: Sequence[tuple[FunctionTarget, _LevelOutcome]],
+                  records: list[dict]) -> dict:
+    """汇总文件里某一级的条目：出题数、放弃数与原因、算子 / 杀死方式分布、same_operator_as_L0 / same_site_as_L0 比例、
+    记账（试了几个位点、复核了几个……）、各类变异体占的沙箱时间。"""
+    counts: Counter = Counter(lo.outcome for _, lo in outcomes)
+    searched = [lo.search for _, lo in outcomes if lo.search is not None]
+    ops = Counter(r["operator"] for r in records)
+    modes = Counter(r["kill_mode"] for r in records)
+    flagged = [r["same_operator_as_L0"] for r in records if r.get("same_operator_as_L0") is not None]
+    sited = [r["same_site_as_L0"] for r in records if r.get("same_site_as_L0") is not None]
+    abandoned = []
+    for t, lo in outcomes:
+        if lo.search is not None and lo.outcome != "killed":
+            sr = lo.search
+            abandoned.append({"target_id": t.target_id, "outcome": lo.outcome, "n_sites": sr.n_sites,
+                              "tried_sites": sr.tried_sites, "equivalent_count": sr.equivalent_count,
+                              "compile_fail_count": sr.compile_fail_count, "parse_fail_count": sr.parse_fail_count,
+                              "unstable_count": sr.unstable_count})
+    seconds: Counter = Counter()
+    for s in searched:
+        seconds.update(s.sandbox_seconds)
+    return {
+        "input_hash": ihash, "inputs": inputs, "n_targets": n_targets, "n_searched": len(searched),
+        "n_killed": len(records), "n_abandoned": len(abandoned), "outcomes": dict(counts),
+        "operators": {op: ops.get(op, 0) for op in MUTATION_OPERATORS}, "kill_modes": dict(modes),
+        "same_operator_as_L0": {"n": len(flagged), "same": sum(1 for f in flagged if f)},
+        "same_site_as_L0": {"n": len(sited), "same": sum(1 for f in sited if f)},
+        "anchor": dict(Counter(s.anchor for s in searched)),
+        "n_sites": sum(s.n_sites for s in searched),
+        "tried_sites": sum(s.tried_sites for s in searched),
+        "equivalent_count": sum(s.equivalent_count for s in searched),
+        "compile_fail_count": sum(s.compile_fail_count for s in searched),
+        "parse_fail_count": sum(s.parse_fail_count for s in searched),
+        "unstable_count": sum(s.unstable_count for s in searched),
+        "n_rechecked": sum(s.rechecked for s in searched),
+        "n_kill_label_changed": sum(1 for r in records if r.get("kill_recheck") not in (None, r.get("kill_mode"))),
+        "n_with_orphans": sum(1 for r in records if r.get("context_orphans")),
+        "n_with_comments": sum(1 for s in searched if s.has_comments),
+        "n_strip_checked": sum(1 for s in searched if s.strip_checked),
+        "n_strip_failed": counts.get("strip_unsafe", 0),
+        "sandbox_seconds": {k: round(v, 1) for k, v in sorted(seconds.items())},
+        "abandoned": abandoned,
+    }
+
+
+def stage_mutate(ctx: Context, spec: CorpusSpec, levels: Optional[Iterable[str]] = None, *,
+                 max_tries: int = DEFAULT_MAX_TRIES, recheck: bool = True) -> StageResult:
+    """缺陷修复任务的出题：在每一级混淆副本的每个入选目标函数里注入一个能被项目测试捕获的缺陷（docs/设计-缺陷修复任务.md §3、§4）。
+
+    只处理 oracle gate 通过的（目标, 级别）：先 verify，再 mutate。每个（目标, 级别）按 :func:`bench.mutate.choose_for_levels`
+    选变异体：L0 先选，其余级别先试 L0 选定的位点在本级的对应位点（``same_site_as_L0``）、再优先复用 L0 选定的算子
+    （``same_operator_as_L0``）；变异体当作候选走一遍完整的 evaluate，编译通过且在测试阶段失败才算杀死，``recheck`` 为真（默认）时
+    杀死的候选再评测一次，第二次仍失败才出题；最多试 ``max_tries`` 个位点，试满仍没有杀死就放弃（不出题，计数并记原因）。
+    变异体的函数文本先去注释再做 kill 检查（符号混淆只改标识符，注释里仍是原名，留着会泄漏被隐藏的名字）；
+    函数里有注释的，先把去注释后的**原函数**放回副本过一遍项目测试，不通过（``strip_unsafe``）就放弃这个（目标, 级别），
+    不搜索，也不拿它当 L1–L3 的参照。
+
+    产出：``results/mutants-<corpus>-<level>.jsonl``（每个出了题的（目标, 级别）一行，字段见附录 §7）和
+    ``results/mutants-<corpus>.summary.json``（各级的输入哈希、出题数、放弃数及原因、算子与杀死方式分布、same_operator_as_L0 /
+    same_site_as_L0 比例、记账、各类变异体占的沙箱时间、耗时）。幂等：每级的输入哈希（spec、原始树、目标集、副本、oracle gate、种子、
+    ``max_tries``、``recheck``、mutate 相关代码、沙箱、宿主 libclang；L1–L3 另含 L0 的输入哈希）没变且文件完好就跳过。
+    只重做 ``levels`` 里过期的级别；不含 L0 时要求 L0 的产出有效（其它级别拿它选定的位点当参照）。
+    """
+    t0 = time.monotonic()
+    if max_tries < 1:
+        raise StageError("max_tries 必须 >= 1")
+    root = _pristine(ctx, spec)
+    targets = load_targets(ctx.ws, spec.name, root=root)
+    ids_hash = _target_ids_hash(targets)
+    wanted = _levels_arg(levels)
+    needed = [lv for lv in LEVELS if lv in wanted or (lv == "L0" and wanted != ["L0"])]
+    obfs: dict[str, dict] = {}
+    gates: dict[str, Optional[dict]] = {}
+    for lv in needed:
+        obfs[lv] = _obf_or_raise(ctx, spec, lv)
+        gates[lv] = _gate_or_raise(spec, lv, obfs[lv], ids_hash) if obfs[lv].get("ok") else None
+    common = _mutate_inputs(ctx, spec, root, ids_hash, max_tries, recheck)
+    expected: dict[str, tuple[dict, str]] = {}
+    for lv in needed:
+        inputs = {**common, "level": lv, "obf": obfs[lv].get("input_hash"), "tree": obfs[lv].get("tree_hash"),
+                  "gate": str((gates[lv] or {}).get("input_hash") or ""),
+                  "ref": expected["L0"][1] if lv != "L0" else None}
+        expected[lv] = (inputs, digest(inputs))
+
+    summary = read_json(ctx.ws.mutants_summary_file(spec.name))
+    prev_levels: dict[str, dict] = dict((summary or {}).get("levels") or {}) if isinstance(summary, dict) else {}
+
+    def is_fresh(lv: str) -> bool:
+        ent, path = prev_levels.get(lv), ctx.ws.mutants_file(spec.name, lv)
+        return bool(ent) and ent.get("input_hash") == expected[lv][1] and path.is_file() \
+            and len(read_jsonl(path)) == ent.get("n_killed")
+
+    todo = [lv for lv in wanted if ctx.force or not is_fresh(lv)]
+    if not todo:
+        killed = sum(prev_levels[lv]["n_killed"] for lv in wanted)
+        gone = sum(prev_levels[lv]["n_abandoned"] for lv in wanted)
+        return _timed("mutate", spec.name, t0, skipped=True, detail={"killed": killed, "abandoned": gone})
+    if "L0" not in todo and not is_fresh("L0"):
+        raise StageError(f"{spec.name}: L1–L3 拿 L0 选定的位点当参照，但 L0 的 mutants 缺失或已过期，请先对 L0 运行 mutate")
+    ref_recs: dict[str, dict] = {}
+    if "L0" not in todo and "L0" in needed:
+        ref_recs = {str(r["target_id"]): r for r in read_jsonl(ctx.ws.mutants_file(spec.name, "L0"))}
+
+    # libclang 相关的定位在主线程里先做完（locate 不在 mutate 的那把锁里），线程池里只做位点枚举与沙箱运行
+    passed = {lv: set((gates[lv] or {}).get("passed_ids") or []) for lv in todo}
+    items: list[tuple] = []
+    for t in targets:
+        trees: dict[str, tuple[Path, FunctionTarget]] = {}
+        pre: dict[str, str] = {}
+        for lv in todo:
+            if not obfs[lv].get("ok"):
+                pre[lv] = "copy_invalid"
+            elif t.target_id not in passed[lv]:
+                pre[lv] = "oracle_failed"
+            else:
+                oroot = ctx.ws.obf_root(spec.name, lv)
+                located = locate(spec, oroot, (obfs[lv].get("rename_map") or {}).get(t.name, t.name), t.file)
+                if located is None:
+                    pre[lv] = "not_relocated"
+                else:
+                    trees[lv] = (oroot, located)
+        ref_src = None
+        if t.target_id in ref_recs and trees:       # 这次不重做 L0：参照要从 L0 的副本和它选定的位点现算
+            root0 = ctx.ws.obf_root(spec.name, "L0")
+            located0 = locate(spec, root0, (obfs["L0"].get("rename_map") or {}).get(t.name, t.name), t.file)
+            if located0 is None:
+                raise StageError(f"{spec.name}: L0 副本里找不到 {t.target_id}，L0 的 mutants 已过期，请先对 L0 运行 mutate")
+            ref_src = (root0, located0, ref_recs[t.target_id])
+        items.append((t, trees, pre, ref_src))
+
+    sandbox = ctx.need_sandbox()
+
+    def one(item: tuple) -> dict[str, _LevelOutcome]:
+        t, trees, pre, ref_src = item
+        out = {lv: _LevelOutcome(why) for lv, why in pre.items()}
+        if not trees:
+            return out
+        reference = None
+        if ref_src is not None:
+            root0, located0, rec0 = ref_src
+            reference = reference_for(analyze(spec, root0, located0), str(rec0["operator"]), int(rec0["site_index"]))
+            if reference is None:
+                raise StageError(f"{t.target_id}: L0 的 mutants 记录的位点 {rec0['operator']}#{rec0['site_index']} 在 L0 副本里已不存在，"
+                                 "请先对 L0 运行 mutate")
+        found = choose_for_levels(spec, trees, ctx.seed, sandbox, target_id=t.target_id, levels=list(trees),
+                                  max_tries=max_tries, reference=reference, work_root=ctx.ws.work, strip_comments=True,
+                                  recheck=recheck)
+        out.update({lv: _LevelOutcome(res.outcome, res) for lv, res in found.items()})
+        return out
+
+    results = list(run_ordered(one, items, ctx.jobs, f"mutate {spec.name}", every=5))
+
+    entries = dict(prev_levels)
+    for lv in todo:
+        inputs, ihash = expected[lv]
+        pairs = [(item[0], per[lv]) for item, per in zip(items, results)]
+        recs: list[dict] = []
+        for t, lo in pairs:
+            if lo.outcome != "killed" or lo.search is None or lo.search.mutant is None:
+                continue
+            recs.append({**lo.search.mutant.to_dict(), "schema_version": SCHEMA_VERSION, "corpus": spec.name,
+                         "outcome": "killed", "n_sites": lo.search.n_sites, "prefer_operator": lo.search.prefer_operator,
+                         "anchor": lo.search.anchor, "has_comments": lo.search.has_comments,
+                         "strip_checked": lo.search.strip_checked, "input_hash": ihash})
+        write_jsonl(ctx.ws.mutants_file(spec.name, lv), recs)
+        entries[lv] = _mutate_entry(ihash, inputs, len(targets), pairs, recs)
+    write_json(ctx.ws.mutants_summary_file(spec.name), {
+        "schema_version": SCHEMA_VERSION, "corpus": spec.name, "created": now_iso(), "seed": ctx.seed,
+        "max_tries": max_tries, "recheck": recheck, "elapsed_s": round(time.monotonic() - t0, 2), "levels_computed": todo,
+        "n_targets": len(targets), "levels": {lv: entries[lv] for lv in LEVELS if lv in entries},
+        "four_level": _four_level_stats(ctx.ws, spec.name, [t.target_id for t in targets]),
+        "sandbox": sandbox_identity(ctx.sandbox)})
+
+    killed = sum(entries[lv]["n_killed"] for lv in todo)
+    gone = sum(entries[lv]["n_abandoned"] for lv in todo)
+    voided = sum(entries[lv]["n_targets"] - entries[lv]["n_searched"] for lv in todo)
+    unstable = sum(entries[lv]["unstable_count"] for lv in todo)
+    why: Counter = Counter()
+    for lv in todo:
+        why.update({k: v for k, v in entries[lv]["outcomes"].items() if k != "killed"})
+    msg = (f"{gone + voided} 个（目标, 级别）不出题（" + ", ".join(f"{k}={v}" for k, v in sorted(why.items())) + "）") \
+        if why else ""
+    return _timed("mutate", spec.name, t0, message=msg,
+                  detail={"targets": len(targets), "levels": "/".join(todo), "killed": killed, "abandoned": gone,
+                          "voided": voided, "unstable": unstable})
+
+
+# ----------------------------------------------------------------------
 # describe：功能规格（一次生成、四级共用）
 # ----------------------------------------------------------------------
 def project_names(spec: CorpusSpec, root: Path) -> set[str]:
@@ -564,7 +815,7 @@ def stage_describe(ctx: Context, spec: CorpusSpec, llm: LLM, *, model_name: Opti
 # ----------------------------------------------------------------------
 @dataclass
 class PlannedTask:
-    task: Task
+    task: Task | RepairTask         # 生成任务是 Task，缺陷修复任务是 RepairTask（两者的 task_id / target_id / corpus / level 等同名）
     spec: CorpusSpec
     original: FunctionTarget        # L0 原始树上的目标
     located: FunctionTarget         # 该级副本里重新定位的目标（偏移对应副本，splice 用它）
@@ -573,8 +824,73 @@ class PlannedTask:
     tree_hash: str                  # 副本源码树哈希（obf json 里记录的）
     spec_hash: str
     gate_hash: str = ""             # oracle gate 的输入哈希（出题时核对过，评测结果里记下）
-    kill_mode: Optional[str] = None  # 该目标的 stub-kill 杀死方式（test_fail / runtime_crash / runtime_timeout）
-    allow_directives: bool = False   # 原函数自己带 #define / #pragma：候选里的这类指令不算违反约束
+    stub_kill_mode: Optional[str] = None    # 该目标被零值桩杀死的方式（test_fail / runtime_crash / runtime_timeout）
+    allow_directives: bool = False          # 原函数自己带 #define / #pragma：候选里的这类指令不算违反约束
+    # 以下只有缺陷修复任务用得上（生成任务里都是空值）；字段名与任务 / 结果记录里的同名字段含义一致
+    mutation: Optional[dict] = None         # 注入的缺陷：{operator, site_index, original_text, mutated_text}
+    kill_mode: Optional[str] = None         # 变异体被杀死的方式（kill 检查里的归因类别）
+    same_operator_as_L0: Optional[bool] = None      # 变异体的算子与 L0 选定的是否相同
+    same_site_as_L0: Optional[bool] = None          # 变异体是不是 L0 选定位点在本级的对应位点（四级是同一个缺陷）
+    mutants_hash: str = ""                  # 变异体所在 mutants 文件的输入哈希（评测结果里记下，report 据此核对）
+
+
+@dataclass
+class _LevelView:
+    """一个级别出题时用到的上游信息：混淆记录、oracle gate 的结论、改名表、副本目录。"""
+
+    level: str
+    obf: dict
+    gate: Optional[dict]
+    root: Path
+
+    @property
+    def mapping(self) -> dict:
+        return self.obf.get("rename_map") or {}
+
+    @property
+    def gate_failed(self) -> set:
+        return {f["target_id"] for f in (self.gate or {}).get("failed", [])}
+
+    @property
+    def gate_passed(self) -> set:
+        return set((self.gate or {}).get("passed_ids") or [])
+
+
+def _level_view(ctx: Context, spec: CorpusSpec, level: str, ids_hash: str, require_gate: bool) -> Optional[_LevelView]:
+    """某一级出题要用的上游信息；副本本身 verify 没过（整级作废）返回 None。副本缺失 / 哈希对不上 / gate 过期直接报 StageError。"""
+    obf = _obf_or_raise(ctx, spec, level)
+    if not obf.get("ok"):
+        return None
+    return _LevelView(level, obf, _gate_or_raise(spec, level, obf, ids_hash, require_gate), ctx.ws.obf_root(spec.name, level))
+
+
+def _common_void(ctx: Context, view: _LevelView, trec: dict, t: FunctionTarget, require_gate: bool) -> Optional[str]:
+    """两类任务共用的作废判定（在使用上游产出的这一刻重新核对，设计文档 §6.8）→ 作废原因，None 表示没问题。"""
+    if not ctx.unsafe_debug and trec.get(t.target_id, {}).get("stub_killed") is not True:
+        return "stub_unchecked"
+    if t.target_id in view.gate_failed:
+        return "oracle_failed"
+    if require_gate and t.target_id not in view.gate_passed:
+        return "oracle_unchecked"
+    if view.level != "L0" and t.name not in view.mapping:
+        return "name_not_renamed"
+    return None
+
+
+def _relocate(spec: CorpusSpec, view: _LevelView, t: FunctionTarget) -> Optional[FunctionTarget]:
+    """目标在该级副本里按映射后的名字重新定位（偏移对应副本）。"""
+    return locate(spec, view.root, view.mapping.get(t.name, t.name), t.file)
+
+
+def _planned(task: Task | RepairTask, spec: CorpusSpec, t: FunctionTarget, located: FunctionTarget, view: _LevelView,
+             trec: dict, spec_hash: str, **repair_fields: Any) -> PlannedTask:
+    """两类任务共用的 PlannedTask 构造（``repair_fields`` 是只有修复任务才有的那几个字段）。"""
+    oracle = read_function(view.root, located)
+    return PlannedTask(
+        task=task, spec=spec, original=t, located=located, oracle=oracle, obf_root=view.root,
+        tree_hash=view.obf["tree_hash"], spec_hash=spec_hash, gate_hash=str((view.gate or {}).get("input_hash") or ""),
+        stub_kill_mode=trec.get(t.target_id, {}).get("stub_kill_mode"), allow_directives=has_policy_directives(oracle),
+        **repair_fields)
 
 
 def plan_tasks(ctx: Context, spec: CorpusSpec, levels: Optional[Iterable[str]] = None, *, require_gate: bool = True
@@ -631,60 +947,170 @@ def plan_tasks(ctx: Context, spec: CorpusSpec, levels: Optional[Iterable[str]] =
         return why
 
     for level in _levels_arg(levels):
-        obf = _obf_or_raise(ctx, spec, level)
-        void = Counter()
-        if not obf.get("ok"):
-            void["copy_invalid"] = len(targets)
-            voids[level] = dict(void)
+        view = _level_view(ctx, spec, level, ids_hash, require_gate)
+        if view is None:
+            voids[level] = {"copy_invalid": len(targets)}
             continue
-        gate = obf.get("oracle_gate")
-        if gate is None and require_gate:
-            raise StageError(f"{spec.name}@{level}: 还没有 oracle gate 结果，请先运行 verify")
-        if gate is not None and require_gate:
-            gi = gate.get("inputs") or {}
-            expect = {"obf": obf.get("input_hash"), "tree": obf.get("tree_hash"), "targets": ids_hash}
-            stale = [k for k, v in expect.items() if gi.get(k) != v]
-            if stale:
-                raise StageError(f"{spec.name}@{level}: oracle gate 是对着另一份{'、'.join(_GATE_WHAT[k] for k in stale)}"
-                                 "跑的（重跑了 targets 或 obfuscate 而没重跑 verify？），请先运行 verify")
-        gate_failed = {f["target_id"] for f in (gate or {}).get("failed", [])}
-        gate_passed = set((gate or {}).get("passed_ids") or [])
-        mapping = obf.get("rename_map") or {}
-        oroot = ctx.ws.obf_root(spec.name, level)
+        void: Counter = Counter()
         for t in targets:
-            desc = descs.get(t.target_id)
-            why = check_description(t)
+            why = check_description(t) or _common_void(ctx, view, trec, t, require_gate)
             if why is not None:
                 void[why] += 1
-            elif not (ctx.unsafe_debug) and trec.get(t.target_id, {}).get("stub_killed") is not True:
-                void["stub_unchecked"] += 1
-            elif t.target_id in gate_failed:
-                void["oracle_failed"] += 1
-            elif require_gate and t.target_id not in gate_passed:
-                void["oracle_unchecked"] += 1
-            elif level != "L0" and t.name not in mapping:
-                void["name_not_renamed"] += 1
-            else:
-                located = locate(spec, oroot, mapping.get(t.name, t.name), t.file)
-                if located is None:
-                    void["not_relocated"] += 1
-                    continue
-                task = Task(
-                    task_id=f"{t.target_id}@{level}", target_id=t.target_id, corpus=spec.name, level=level,
-                    obf_name=located.name, obf_signature=located.signature, context=located.deps,
-                    description=desc["description"], includes=list(located.deps.includes),
-                    language_std=spec.std or "c99")
-                planned.append(PlannedTask(task=task, spec=spec, original=t, located=located,
-                                           oracle=read_function(oroot, located), obf_root=oroot,
-                                           tree_hash=obf["tree_hash"], spec_hash=sh,
-                                           gate_hash=str((gate or {}).get("input_hash") or ""),
-                                           kill_mode=trec.get(t.target_id, {}).get("stub_kill_mode"),
-                                           allow_directives=has_policy_directives(read_function(oroot, located))))
+                continue
+            located = _relocate(spec, view, t)
+            if located is None:
+                void["not_relocated"] += 1
+                continue
+            task = Task(
+                task_id=f"{t.target_id}@{level}", target_id=t.target_id, corpus=spec.name, level=level,
+                obf_name=located.name, obf_signature=located.signature, context=located.deps,
+                description=descs[t.target_id]["description"], includes=list(located.deps.includes),
+                language_std=spec.std or "c99")
+            planned.append(_planned(task, spec, t, located, view, trec, sh))
         voids[level] = dict(void)
     return planned, voids
 
 
 _GATE_WHAT = {"obf": "混淆副本记录", "tree": "副本源码树", "targets": "目标集"}
+
+
+def _gate_or_raise(spec: CorpusSpec, level: str, obf: dict, ids_hash: str, require: bool = True) -> Optional[dict]:
+    """某一级的 oracle gate 结果。``require`` 为真时：还没跑过 verify，或 gate 对着的副本 / 目标集与现状不符
+    （重跑了 targets 或 obfuscate 而没重跑 verify），直接报错；为假时有什么返回什么（可能是 None）。"""
+    gate = obf.get("oracle_gate")
+    if gate is None and require:
+        raise StageError(f"{spec.name}@{level}: 还没有 oracle gate 结果，请先运行 verify")
+    if gate is not None and require:
+        gi = gate.get("inputs") or {}
+        expect = {"obf": obf.get("input_hash"), "tree": obf.get("tree_hash"), "targets": ids_hash}
+        stale = [k for k, v in expect.items() if gi.get(k) != v]
+        if stale:
+            raise StageError(f"{spec.name}@{level}: oracle gate 是对着另一份{'、'.join(_GATE_WHAT[k] for k in stale)}"
+                             "跑的（重跑了 targets 或 obfuscate 而没重跑 verify？），请先运行 verify")
+    return gate
+
+
+_MUTANT_WHAT = {"obf": "混淆副本记录", "tree": "副本源码树", "targets": "目标集", "spec": "语料 spec",
+                "gate": "oracle gate 结果", "ref": "L0 的变异体", "code": "mutate 相关代码", "seed": "随机种子（--seed）",
+                "version": "mutate 阶段版本", "clang": "宿主 libclang 环境", "env": "沙箱（镜像或资源上限）",
+                "strip_comments": "去注释设置"}
+
+
+def _own_name_in_literals(name: str, code: str) -> bool:
+    """函数文本的字符串 / 字符常量里有没有出现 ``name``（整词）。L1 以上目标函数已经改名，字面量里（错误提示里写着函数名之类）
+    出现原名，就把本该隐藏的名字原样放进了提示词，字面量改了会改变行为，去不掉。"""
+    pat = re.compile(rf"(?<![A-Za-z0-9_]){re.escape(name)}(?![A-Za-z0-9_])")
+    return any(kind in ("string", "char") and pat.search(text) for kind, text in lex(code))
+
+
+def plan_repair_tasks(ctx: Context, spec: CorpusSpec, levels: Optional[Iterable[str]] = None, *,
+                      require_gate: bool = True) -> tuple[list[PlannedTask], dict[str, dict[str, int]]]:
+    """为 ``levels`` 里每个级别、每个入选目标准备缺陷修复任务（``RepairTask``，上下文取自该级副本，名字已按映射改写）。
+
+    返回（任务列表, {级别: {作废原因: 个数}}）。变异体取自 mutate 阶段的 ``mutants-<corpus>-<level>.jsonl``，
+    不需要功能规格，所以与 describe 阶段无关。作废原因：``copy_invalid``（副本 verify 没过，整级作废）、
+    ``stub_unchecked``（目标没做过 stub-kill，只有 ``ctx.unsafe_debug`` 才放行）、``oracle_failed`` / ``oracle_unchecked``、
+    ``name_not_renamed``（L1+ 里目标函数名没被改掉，签名会带真名）、``no_killed_mutant``（mutate 没为这个（目标, 级别）选出
+    被杀死的变异体：没有位点、全是等价变异体、试满上限，或去注释后的原函数通不过测试）、``name_in_literal``（L1+ 的变异体函数
+    文本的字符串 / 字符常量里带着目标函数自己的原名，隐藏失败）、``not_relocated``。
+
+    提示词里的依赖上下文取自注入缺陷后的函数（``prompt.prune_context``）：被删掉 / 换掉的那部分代码才用到的原型、宏、全局不进提示词，
+    被裁掉的名字记在 ``RepairTask.context_orphans``。
+
+    和 :func:`plan_tasks` 一样在使用上游产出的时候重新核对：还没跑 mutate、mutate 对着的副本 / 目标集 / spec / oracle gate /
+    mutate 相关代码 / 沙箱（有沙箱时）/ 种子 / 宿主 libclang 与现状不符、L1–L3 参照的 L0 变异体已重做，都直接报 StageError，
+    不会悄悄用上过期的变异体。
+    """
+    root = _pristine(ctx, spec)
+    targets = load_targets(ctx.ws, spec.name, root=root)
+    trec = {r.get("target_id"): r for r in load_target_records(ctx.ws, spec.name)}
+    sh = spec_digest(spec)
+    ids_hash = _target_ids_hash(targets)
+    l0_entry = load_mutants(ctx.ws, spec.name, "L0")[0]
+    expect_common: dict[str, Any] = {
+        "spec": sh, "targets": ids_hash, "code": code_digest("mutate"), "seed": ctx.seed, "version": STAGE_VERSIONS["mutate"],
+        "clang": clangcfg.environment(), "strip_comments": True}
+    if ctx.sandbox is not None:                       # generate 不碰沙箱，沙箱身份留给 evaluate 核对
+        expect_common["env"] = ctx.env(full=True)
+    planned: list[PlannedTask] = []
+    voids: dict[str, dict[str, int]] = {}
+    for level in _levels_arg(levels):
+        view = _level_view(ctx, spec, level, ids_hash, require_gate)
+        if view is None:
+            voids[level] = {"copy_invalid": len(targets)}
+            continue
+        entry, mutants = load_mutants(ctx.ws, spec.name, level)
+        path = ctx.ws.mutants_file(spec.name, level)
+        if entry is None or not path.is_file():
+            raise StageError(f"{spec.name}@{level}: 还没有 {path.name}，请先运行 mutate")
+        mi = entry.get("inputs") or {}
+        expect = {**expect_common, "obf": view.obf.get("input_hash"), "tree": view.obf.get("tree_hash")}
+        if view.gate is not None:
+            expect["gate"] = str(view.gate.get("input_hash") or "")
+        stale = [k for k, v in expect.items() if mi.get(k) != v]
+        if level != "L0" and l0_entry is not None and mi.get("ref") != l0_entry.get("input_hash"):
+            stale.append("ref")
+        if stale:
+            raise StageError(f"{spec.name}@{level}: 变异体是对着另一份{'、'.join(_MUTANT_WHAT[k] for k in stale)}生成的"
+                             "（上游产出、mutate 相关代码、沙箱镜像、--seed 或 L0 的 mutate 变了，而没重跑 mutate？），请先运行 mutate")
+        if len(mutants) != entry.get("n_killed") or any(r.get("input_hash") != entry.get("input_hash")
+                                                       for r in mutants.values()):
+            raise StageError(f"{spec.name}@{level}: {path.name} 与汇总文件对不上（被改动过？），请用 mutate --force 重做")
+        void: Counter = Counter()
+        for t in targets:
+            why = _common_void(ctx, view, trec, t, require_gate)
+            rec = mutants.get(t.target_id)
+            if why is None and rec is None:
+                why = "no_killed_mutant"
+            if why is None and level != "L0" and _own_name_in_literals(t.name, str(rec["mutant_code"])):
+                why = "name_in_literal"
+            if why is not None:
+                void[why] += 1
+                continue
+            located = _relocate(spec, view, t)
+            if located is None:
+                void["not_relocated"] += 1
+                continue
+            context, orphans = prune_context(located.deps, str(rec["mutant_code"]))
+            if "context_orphans" in rec and sorted(rec["context_orphans"]) != sorted(orphans):
+                raise StageError(f"{t.target_id}@{level}: 变异体记录里的 context_orphans 与现在重新算的不一致"
+                                 f"（{rec['context_orphans']} 对 {orphans}），请用 mutate --force 重做")
+            task = RepairTask(
+                task_id=f"{t.target_id}@{level}#repair", target_id=t.target_id, corpus=spec.name, level=level,
+                obf_name=located.name, obf_signature=located.signature, context=context,
+                includes=list(located.deps.includes), language_std=spec.std or "c99",
+                mutant_code=str(rec["mutant_code"]), operator=str(rec["operator"]), context_orphans=orphans)
+            planned.append(_planned(
+                task, spec, t, located, view, trec, sh,
+                mutation={"operator": rec["operator"], "site_index": rec["site_index"],
+                          "original_text": rec["original_text"], "mutated_text": rec["mutated_text"]},
+                kill_mode=rec.get("kill_mode"), same_operator_as_L0=rec.get("same_operator_as_L0"),
+                same_site_as_L0=rec.get("same_site_as_L0"), mutants_hash=str(entry.get("input_hash") or "")))
+        voids[level] = dict(void)
+    return planned, voids
+
+
+def repair_inputs_present(ws: Workspace, specs: Sequence[CorpusSpec], levels: Optional[Iterable[str]] = None) -> bool:
+    """所选语料 × 级别里是不是已有 mutate 的产出（任何一个 mutants-<语料>-<级别>.jsonl 存在）。"""
+    return any(ws.mutants_file(s.name, lv).is_file() for s in specs for lv in _levels_arg(levels))
+
+
+def resolve_tasks(ctx: Context, specs: Sequence[CorpusSpec], levels: Optional[Iterable[str]], task: str = "all"
+                  ) -> tuple[list[str], list[str]]:
+    """``--task`` 的取值 → （要处理的任务列表, 给用户看的说明）。
+
+    ``generate`` / ``repair`` 就是它自己（修复任务缺 mutate 产出时，出题那一步会报错并提示先运行 mutate）；
+    ``all``：生成任务照常处理，修复任务只在 mutate 已经有产出时一并处理，没有就在说明里写明「已跳过」，
+    免得只想做生成任务的人因为还没跑 mutate 而被拦住。
+    """
+    if task in TASKS:
+        return [task], []
+    if task != "all":
+        raise StageError(f"未知任务类型 {task!r}，可选 {', '.join(TASKS)}、all")
+    if repair_inputs_present(ctx.ws, specs, levels):
+        return list(TASKS), []
+    return ["generate"], ["修复任务：还没有 mutate 的产出（results/mutants-<语料>-<级别>.jsonl），已跳过；"
+                          "要处理修复任务先运行 python3 -m bench mutate（或 --task generate 去掉这条提示）"]
 
 
 # ----------------------------------------------------------------------
@@ -701,20 +1127,68 @@ def build_llm(name: str, ws: Workspace, *, oracle: Optional[dict[str, str]] = No
     return make_llm(name, cache=Cache(ws.cache_dir, read=use_cache), usage_path=ws.usage_file, require_key=False)
 
 
-def _task_record(pt: PlannedTask, messages_hash: str) -> dict:
-    return {**pt.task.to_dict(), "schema_version": SCHEMA_VERSION, "prompt_digest": PROMPT_DIGEST[:16],
-            "prompt_version": PROMPT_VERSION, "messages_hash": messages_hash, "tree": pt.tree_hash}
+@dataclass(frozen=True)
+class TaskKind:
+    """两类任务（功能规格生成 / 缺陷修复）在 generate、evaluate 两个阶段里不同的那几处：出题函数、提示词、数据文件名。
+    其余流程（调模型、缓存、续跑、后处理、沙箱评测、归因、完整性记录）完全共用。"""
+
+    name: str                                                       # generate / repair
+    plan: Callable[..., tuple[list[PlannedTask], dict[str, dict[str, int]]]]    # plan_tasks / plan_repair_tasks
+    messages: Callable[[Any], list[dict]]                                           # build_messages / build_repair_messages
+    prompt_digest: str                                              # 提示词模板摘要（全长）
+    prompt_version: str
+    tasks_file: Callable[[Workspace], Path]
+    generations_file: Callable[[Workspace, str], Path]
+    failures_file: Callable[[Workspace, str], Path]
+    results_file: Callable[[Workspace, str], Path]
+    completeness_file: Callable[[Workspace, str], Path]
+
+    @property
+    def suffix(self) -> str:
+        """阶段结果里附在模型名后面的标记（生成任务不加，保持原有输出）。"""
+        return "" if self.name == "generate" else f" [{self.name}]"
+
+
+TASK_KINDS: dict[str, TaskKind] = {
+    "generate": TaskKind(
+        "generate", plan_tasks, build_messages, PROMPT_DIGEST, PROMPT_VERSION, lambda ws: ws.tasks_file,
+        lambda ws, m: ws.generations_file(m), lambda ws, m: ws.generation_failures_file(m),
+        lambda ws, tag: ws.results_file(tag), lambda ws, tag: ws.completeness_file(tag)),
+    "repair": TaskKind(
+        "repair", plan_repair_tasks, build_repair_messages, REPAIR_PROMPT_DIGEST, REPAIR_PROMPT_VERSION,
+        lambda ws: ws.repair_tasks_file, lambda ws, m: ws.repair_generations_file(m),
+        lambda ws, m: ws.repair_generation_failures_file(m), lambda ws, tag: ws.repair_results_file(tag),
+        lambda ws, tag: ws.repair_completeness_file(tag)),
+}
+
+
+def _kind(task: str) -> TaskKind:
+    try:
+        return TASK_KINDS[task]
+    except KeyError:
+        raise StageError(f"未知任务类型 {task!r}，可选 {', '.join(TASKS)}") from None
+
+
+def _task_record(pt: PlannedTask, messages_hash: str, kind: TaskKind) -> dict:
+    base = {**pt.task.to_dict(), "schema_version": SCHEMA_VERSION, "prompt_digest": kind.prompt_digest[:16],
+            "prompt_version": kind.prompt_version, "messages_hash": messages_hash, "tree": pt.tree_hash}
+    if kind.name == "repair":
+        base.update({"task": "repair", "mutation": pt.mutation, "kill_mode": pt.kill_mode,
+                     "same_operator_as_L0": pt.same_operator_as_L0, "same_site_as_L0": pt.same_site_as_L0,
+                     "mutants": pt.mutants_hash})
+    return base
 
 
 def _write_tasks(ws: Workspace, planned: list[PlannedTask], messages_hash: dict[str, str],
-                 scope: set[tuple[str, str]]) -> None:
-    """把本次出的题并入 tasks.jsonl：scope（语料, 级别）内的旧记录整体替换，其它保留。"""
-    kept = [r for r in read_jsonl(ws.tasks_file) if (r.get("corpus"), r.get("level")) not in scope]
-    new = [_task_record(pt, messages_hash[pt.task.task_id]) for pt in planned]
+                 scope: set[tuple[str, str]], kind: TaskKind) -> None:
+    """把本次出的题并入 tasks.jsonl（修复任务是 tasks-repair.jsonl）：scope（语料, 级别）内的旧记录整体替换，其它保留。"""
+    path = kind.tasks_file(ws)
+    kept = [r for r in read_jsonl(path) if (r.get("corpus"), r.get("level")) not in scope]
+    new = [_task_record(pt, messages_hash[pt.task.task_id], kind) for pt in planned]
     order = {lv: i for i, lv in enumerate(LEVELS)}
     merged = sorted(kept + new, key=lambda r: (r.get("corpus", ""), r.get("target_id", ""),
                                                order.get(r.get("level"), 9)))
-    write_jsonl(ws.tasks_file, merged)
+    write_jsonl(path, merged)
 
 
 def _gen_inputs_hash(messages_hash: str, model: str, temperature: float, max_tokens: int, seed: Optional[int],
@@ -726,7 +1200,7 @@ def _gen_inputs_hash(messages_hash: str, model: str, temperature: float, max_tok
 
 def _dry_run_generate(ctx: Context, planned: list[PlannedTask], messages: dict[str, list[dict]],
                       mhash: dict[str, str], model_names: Sequence[str], samples: int, temperature: float,
-                      max_tokens: int, void_note: str) -> list[StageResult]:
+                      max_tokens: int, void_note: str, kind: TaskKind) -> list[StageResult]:
     """generate 的预估：每个模型还要发多少次请求（扣掉已有的回复）、去重后有多少个不同的请求、提示 token 约多少。
     只做离线计算：构造模型对象不联网、不要 API key，也不写任何文件。"""
     out: list[StageResult] = []
@@ -734,7 +1208,7 @@ def _dry_run_generate(ctx: Context, planned: list[PlannedTask], messages: dict[s
         t0 = time.monotonic()
         fp = build_llm(name, ctx.ws, use_cache=not ctx.no_cache).fingerprint()
         have = {(r.get("task_id"), r.get("sample_idx")): r.get("input_hash")
-                for r in read_jsonl(ctx.ws.generations_file(name))}
+                for r in read_jsonl(kind.generations_file(ctx.ws, name))}
         todo = unique = tokens = 0
         seen: set[tuple[str, Optional[int]]] = set()
         for pt in planned:
@@ -749,7 +1223,7 @@ def _dry_run_generate(ctx: Context, planned: list[PlannedTask], messages: dict[s
                     seen.add((mhash[pt.task.task_id], seed_i))
                     unique += 1
                     tokens += sum(estimate_tokens(str(m.get("content", ""))) for m in messages[pt.task.task_id])
-        out.append(_timed("generate", f"{name}（预估，未调用）", t0, message=void_note,
+        out.append(_timed("generate", f"{name}{kind.suffix}（预估，未调用）", t0, message=void_note,
                           detail={"tasks": len(planned), "to_call": todo, "unique_requests": unique,
                                   "est_prompt_tokens": tokens, "max_completion_tokens": unique * max_tokens}))
     return out
@@ -767,8 +1241,12 @@ def _update_failures(path: Path, scope_keys: set[tuple], new: list[dict]) -> Non
 
 def stage_generate(ctx: Context, specs: Sequence[CorpusSpec], model_names: Sequence[str],
                    levels: Optional[Iterable[str]] = None, *, samples: int = 1, temperature: float = 0.0,
-                   max_tokens: int = 4096, dry_run: bool = False) -> list[StageResult]:
+                   max_tokens: int = 4096, dry_run: bool = False, task: str = "generate") -> list[StageResult]:
     """按（目标, 级别, 模型, 样本）组织 prompt、调模型，回复追加写 ``generations-<model>.jsonl``，并更新 ``tasks.jsonl``。
+
+    ``task="repair"`` 处理缺陷修复任务：题目来自 :func:`plan_repair_tasks`（先运行 mutate），提示词是
+    ``build_repair_messages``，文件名换成 ``tasks-repair.jsonl`` / ``generations-repair-<model>.jsonl`` /
+    ``generation-failures-repair-<model>.jsonl``，生成记录多 ``task`` 与 ``mutation`` 字段；其余行为完全一致。
 
     断点续跑：已有记录且输入哈希（prompt、模型标签、模型实例配置指纹、温度、max_tokens、seed）没变的样本不再调用。
     多样本（``samples > 1``）要求 temperature > 0；只要 temperature > 0，样本 i 就把 i 当 seed 传给模型
@@ -784,30 +1262,31 @@ def stage_generate(ctx: Context, specs: Sequence[CorpusSpec], model_names: Seque
         raise StageError("samples 必须 >= 1")
     if samples > 1 and temperature <= 0:
         raise StageError("samples > 1 时 temperature 必须 > 0，否则所有样本都是同一份回复")
+    kind = _kind(task)
     levels_l = _levels_arg(levels)
     planned: list[PlannedTask] = []
     void_total: Counter = Counter()
     for spec in specs:
-        got, voids = plan_tasks(ctx, spec, levels_l)
+        got, voids = kind.plan(ctx, spec, levels_l)
         planned += got
         for per_level in voids.values():
             void_total.update(per_level)
     void_note = (f"作废 {sum(void_total.values())} 个任务（" + ", ".join(f"{k}={v}" for k, v in sorted(void_total.items()))
                  + "）") if void_total else ""
-    messages = {pt.task.task_id: build_messages(pt.task) for pt in planned}
+    messages = {pt.task.task_id: kind.messages(pt.task) for pt in planned}
     mhash = {tid: digest(m) for tid, m in messages.items()}
     if dry_run:
         return _dry_run_generate(ctx, planned, messages, mhash, model_names, samples, temperature, max_tokens,
-                                 void_note)
+                                 void_note, kind)
     scope = {(spec.name, lv) for spec in specs for lv in levels_l}
-    _write_tasks(ctx.ws, planned, mhash, scope)
+    _write_tasks(ctx.ws, planned, mhash, scope, kind)
     oracle = {pt.task.task_id: pt.oracle for pt in planned}
     results: list[StageResult] = []
     for name in model_names:
         t0 = time.monotonic()
         llm = build_llm(name, ctx.ws, oracle=oracle, use_cache=not ctx.no_cache)
         fp = llm.fingerprint()
-        path = ctx.ws.generations_file(name)
+        path = kind.generations_file(ctx.ws, name)
         want: dict[tuple[str, int], tuple[PlannedTask, str, Optional[int]]] = {}
         for pt in planned:
             for idx in range(samples):
@@ -837,14 +1316,17 @@ def stage_generate(ctx: Context, specs: Sequence[CorpusSpec], model_names: Seque
             write_jsonl(path, kept)
         todo = [(key, *want[key]) for key in want if key not in have]
         if not todo:
-            _update_failures(ctx.ws.generation_failures_file(name), set(want), [])
-            results.append(_timed("generate", name, t0, skipped=True, message=void_note, detail={"tasks": len(planned)}))
+            _update_failures(kind.failures_file(ctx.ws, name), set(want), [])
+            results.append(_timed("generate", name + kind.suffix, t0, skipped=True, message=void_note,
+                                  detail={"tasks": len(planned)}))
             continue
 
         def one(item):
             (task_id, idx), pt, _ih, seed_i = item
             meta = {"task_id": task_id, "target_id": pt.task.target_id, "level": pt.task.level,
                     "obf_signature": pt.task.obf_signature, "purpose": "generate", "sample_idx": idx}
+            if kind.name == "repair":          # MockLLM 的 unchanged 模式靠它们原样返回变异体
+                meta.update(task="repair", mutant_code=pt.task.mutant_code)
             try:
                 return chat_with_meta(llm, messages[task_id], temperature=temperature, max_tokens=max_tokens,
                                       seed=seed_i, meta=meta), None
@@ -867,7 +1349,7 @@ def stage_generate(ctx: Context, specs: Sequence[CorpusSpec], model_names: Seque
                 failures.append({"schema_version": SCHEMA_VERSION, "task_id": task_id, "sample_idx": idx,
                                  "target_id": pt.task.target_id, "corpus": pt.task.corpus, "level": pt.task.level,
                                  "model": name, "error": str(err)[:300], "status": getattr(err, "status", None),
-                                 "created": now_iso()})
+                                 "created": now_iso(), **({"task": "repair"} if kind.name == "repair" else {})})
                 continue
             n_cached += int(reply.cached)
             p_tok += reply.prompt_tokens
@@ -881,10 +1363,11 @@ def stage_generate(ctx: Context, specs: Sequence[CorpusSpec], model_names: Seque
                 "api_model": getattr(llm, "api_model", None), "llm_fp": fp,
                 "reply_model": (reply.raw or {}).get("model"), "system_fingerprint": reply.system_fingerprint,
                 "messages_hash": mhash[task_id], "input_hash": ihash, "created": now_iso(),
+                **({"task": "repair", "mutation": pt.mutation} if kind.name == "repair" else {}),
             })
-        _update_failures(ctx.ws.generation_failures_file(name), set(want), failures)
+        _update_failures(kind.failures_file(ctx.ws, name), set(want), failures)
         results.append(_timed(
-            "generate", name, t0, ok=n_fail == 0,
+            "generate", name + kind.suffix, t0, ok=n_fail == 0,
             message="；".join(m for m in (f"{n_fail} 次调用失败，重新运行会续跑" if n_fail else "", void_note) if m),
             detail={"tasks": len(planned), "calls": len(todo) - n_fail, "cached": n_cached,
                     "prompt_tokens": p_tok, "completion_tokens": c_tok}))
@@ -894,29 +1377,35 @@ def stage_generate(ctx: Context, specs: Sequence[CorpusSpec], model_names: Seque
 # ----------------------------------------------------------------------
 # evaluate：后处理 → 替换 → 沙箱编译与测试 → 归因
 # ----------------------------------------------------------------------
-def load_generations(ws: Workspace, model: str) -> list[dict]:
-    """generations-<model>.jsonl 里每个（task_id, sample_idx）的最后一条记录，保持文件顺序。"""
+def load_generations(ws: Workspace, model: str, task: str = "generate") -> list[dict]:
+    """generations-<model>.jsonl（修复任务是 generations-repair-<model>.jsonl）里每个（task_id, sample_idx）的最后一条记录，
+    保持文件顺序。"""
     latest: dict[tuple, dict] = {}
-    for rec in read_jsonl(ws.generations_file(model)):
+    for rec in read_jsonl(_kind(task).generations_file(ws, model)):
         latest[(rec.get("task_id"), rec.get("sample_idx"))] = rec
     return list(latest.values())
 
 
-def _result_hash(ctx: Context, gen: dict, pt: PlannedTask) -> str:
+def _result_hash(ctx: Context, gen: dict, pt: PlannedTask, kind: TaskKind) -> str:
     """一条评测结果的输入哈希：回复（生成记录的输入哈希 + 回复文本）、提示词、副本、spec、oracle gate、
-    沙箱（镜像 ID + 资源上限）、评测相关源文件的内容哈希、阶段版本。"""
-    return digest({"gen": gen.get("input_hash"), "reply": digest(gen.get("text") or ""), "tree": pt.tree_hash,
-                   "spec": pt.spec_hash, "prompt": PROMPT_DIGEST[:16], "gate": pt.gate_hash,
-                   "env": ctx.env(full=True), "code": code_digest("evaluate"),
-                   "version": STAGE_VERSIONS["evaluate"]})
+    沙箱（镜像 ID + 资源上限）、评测相关源文件的内容哈希、阶段版本；修复任务另含变异体所在 mutants 文件的输入哈希
+    和 mutate 相关代码的摘要（变异体是按那份判定逻辑杀死的）。"""
+    inputs = {"gen": gen.get("input_hash"), "reply": digest(gen.get("text") or ""), "tree": pt.tree_hash,
+              "spec": pt.spec_hash, "prompt": kind.prompt_digest[:16], "gate": pt.gate_hash,
+              "env": ctx.env(full=True), "code": code_digest("evaluate"), "version": STAGE_VERSIONS["evaluate"]}
+    if kind.name == "repair":
+        inputs["mutants"] = pt.mutants_hash
+        inputs["mutate_code"] = code_digest("mutate")
+    return digest(inputs)
 
 
 def _eval_record(ctx: Context, tag: str, gen: dict, pt: PlannedTask, cand: Candidate, ev: Optional[EvalResult],
-                 category: str, detail: str, similarity: Optional[float], ihash: str) -> dict:
+                 category: str, detail: str, similarity: Optional[float], ihash: str, kind: TaskKind) -> dict:
     d = ev.to_dict() if ev is not None else {}
     policy = ev is None and bool(cand.violations)
-    return {
-        "schema_version": SCHEMA_VERSION, "tag": tag, "task_id": pt.task.task_id, "target_id": pt.task.target_id,
+    rec = {
+        "schema_version": SCHEMA_VERSION, "task": kind.name, "tag": tag, "task_id": pt.task.task_id,
+        "target_id": pt.task.target_id,
         "corpus": pt.task.corpus, "level": pt.task.level, "model": gen["model"], "sample_idx": gen["sample_idx"],
         "stage": ev.stage if ev is not None else ("policy" if policy else "extract"),
         "rc": ev.rc if ev is not None else None, "timed_out": ev.timed_out if ev is not None else False,
@@ -928,22 +1417,39 @@ def _eval_record(ctx: Context, tag: str, gen: dict, pt: PlannedTask, cand: Candi
         "issues": list(cand.issues), "violations": list(cand.violations), "analysis_skipped": cand.analysis_skipped,
         "prompt_tokens": gen.get("prompt_tokens", 0),
         "completion_tokens": gen.get("completion_tokens", 0), "cached": bool(gen.get("cached")),
-        "stub_kill_mode": pt.kill_mode,
+        "stub_kill_mode": pt.stub_kill_mode,
         "temperature": gen.get("temperature"), "max_tokens": gen.get("max_tokens"), "seed": gen.get("seed"),
         "api_model": gen.get("api_model"),
-        "inputs": {"spec": pt.spec_hash, "tree": pt.tree_hash, "prompt": PROMPT_DIGEST[:16],
+        "inputs": {"spec": pt.spec_hash, "tree": pt.tree_hash, "prompt": kind.prompt_digest[:16],
                    "gen": gen.get("input_hash"), "messages": gen.get("messages_hash"),
                    "reply": digest(gen.get("text") or ""), "gate": pt.gate_hash,
                    "env": ctx.env(full=True), "code": code_digest("evaluate")},
         "sandbox": sandbox_identity(ctx.sandbox),
         "input_hash": ihash, "created": now_iso(),
     }
+    if kind.name == "repair":
+        # 候选与变异体规范化后相同 = 模型什么也没改；与该级原函数规范化后相同 = 逐字还原（只比排版与注释之外的内容）。
+        # 注意单点缺陷（ROR / AOR / LOR / OBO / NEG）的任何正确修复都逐字等于原函数，restored 约等于 pass，
+        # similarity 在候选没大改时天然接近 1：修复任务里这两个量不是「凭记忆还原」的指标（报告里有说明）
+        rec.update({
+            "mutation": pt.mutation, "kill_mode": pt.kill_mode, "same_operator_as_L0": pt.same_operator_as_L0,
+            "same_site_as_L0": pt.same_site_as_L0, "context_orphans": list(pt.task.context_orphans),
+            "unchanged": normalized_equal(cand.code, pt.task.mutant_code),
+            "restored": normalized_equal(cand.code, pt.oracle)})
+        rec["inputs"]["mutants"] = pt.mutants_hash
+        rec["inputs"]["mutate_code"] = code_digest("mutate")
+    return rec
 
 
 def stage_evaluate(ctx: Context, specs: Sequence[CorpusSpec], model_names: Sequence[str],
-                   levels: Optional[Iterable[str]] = None, *, tag: str = "run") -> list[StageResult]:
+                   levels: Optional[Iterable[str]] = None, *, tag: str = "run", task: str = "generate"
+                   ) -> list[StageResult]:
     """对 generations 里的每个样本：后处理出候选代码 → 替换回该级混淆副本 → 沙箱编译并跑项目测试 → 归因 → 相似度，
     追加写 ``results-<tag>.jsonl``。
+
+    ``task="repair"`` 评测缺陷修复任务：读 ``generations-repair-<model>.jsonl``，写 ``results-repair-<tag>.jsonl`` 与
+    ``completeness-repair-<tag>.json``；判定流程与生成任务完全相同，记录多 ``task`` / ``mutation`` / ``kill_mode`` /
+    ``same_operator_as_L0`` / ``unchanged`` / ``restored`` 字段（候选与变异体、与该级原函数规范化后是否相同）。
 
     只评测与当前 prompt 对得上的回复（回复记录里的 messages 哈希与重新出的题一致）；已评测且输入哈希没变的样本跳过。
     抽不出代码的回复不进沙箱，直接归 extract_fail（stage 记为 extract）；违反硬性约束的回复（调用 exit 等）同样不进沙箱，
@@ -952,21 +1458,22 @@ def stage_evaluate(ctx: Context, specs: Sequence[CorpusSpec], model_names: Seque
     评测完把「应有多少样本、实际评测了多少、缺多少」按（模型, 级别, 语料）写进 ``completeness-<tag>.json``：
     缺的样本（生成调用失败、没生成、回复过期）会让阶段失败（``ctx.allow_missing`` 放行），报告里也会标「不完整」。
     """
+    kind = _kind(task)
     levels_l = _levels_arg(levels)
     plan: dict[str, PlannedTask] = {}
     for spec in specs:
-        got, _ = plan_tasks(ctx, spec, levels_l)
+        got, _ = kind.plan(ctx, spec, levels_l)
         plan.update({pt.task.task_id: pt for pt in got})
-    mhash = {tid: digest(build_messages(pt.task)) for tid, pt in plan.items()}
+    mhash = {tid: digest(kind.messages(pt.task)) for tid, pt in plan.items()}
     scope_corpora = {spec.name for spec in specs}
-    path = ctx.ws.results_file(tag)
+    path = kind.results_file(ctx.ws, tag)
     models = set(model_names)
 
     def in_scope(rec: dict) -> bool:
         return rec.get("model") in models and rec.get("corpus") in scope_corpora and rec.get("level") in levels_l
 
     # 先整理旧结果：范围外的保留；范围内输入哈希还对得上的保留，其余丢弃重做
-    gens_by_model = {m: load_generations(ctx.ws, m) for m in model_names}
+    gens_by_model = {m: load_generations(ctx.ws, m, kind.name) for m in model_names}
     expected: dict[tuple, tuple[dict, PlannedTask, str]] = {}
     stale_gen = Counter()
     for m, gens in gens_by_model.items():
@@ -977,7 +1484,7 @@ def stage_evaluate(ctx: Context, specs: Sequence[CorpusSpec], model_names: Seque
             if gen.get("messages_hash") != mhash[pt.task.task_id]:
                 stale_gen[m] += 1
                 continue
-            expected[(gen["task_id"], m, gen["sample_idx"])] = (gen, pt, _result_hash(ctx, gen, pt))
+            expected[(gen["task_id"], m, gen["sample_idx"])] = (gen, pt, _result_hash(ctx, gen, pt, kind))
     kept, dropped, have = [], 0, set()
     for rec in read_jsonl(path):
         key = (rec.get("task_id"), rec.get("model"), rec.get("sample_idx"))
@@ -995,13 +1502,15 @@ def stage_evaluate(ctx: Context, specs: Sequence[CorpusSpec], model_names: Seque
     for m in model_names:
         t0 = time.monotonic()
         todo = [(key, *val) for key, val in expected.items() if key[1] == m and key not in have]
-        missing, comp_cells = _completeness(ctx, m, plan, gens_by_model[m], have, todo)
+        missing, comp_cells = _completeness(ctx, m, plan, gens_by_model[m], have, todo, kind)
         if not todo:
-            results.append(_timed("evaluate", f"{m}/{tag}", t0, skipped=True,
-                                  ok=ctx.allow_missing or missing["missing"] == 0, message=missing["message"],
+            bad = _unreliable_tasks(path, m, in_scope)
+            results.append(_timed("evaluate", f"{m}/{tag}{kind.suffix}", t0, skipped=True,
+                                  ok=(ctx.allow_missing or missing["missing"] == 0) and not bad,
+                                  message="；".join(x for x in (missing["message"], _unreliable_note(bad)) if x),
                                   detail={"records": sum(1 for k in have if k[1] == m),
                                           "stale_generations": stale_gen[m], "missing": missing["missing"]}))
-            _write_completeness(ctx.ws, tag, comp_cells, {m}, set(levels_l), scope_corpora)
+            _write_completeness(ctx.ws, tag, comp_cells, {m}, set(levels_l), scope_corpora, kind)
             continue
         # 串行：后处理（libclang）与归因输入；线程池里只做沙箱评测
         prepared: list[tuple] = []
@@ -1023,27 +1532,42 @@ def stage_evaluate(ctx: Context, specs: Sequence[CorpusSpec], model_names: Seque
             category, detail = attribute(ev, cand)
             sim = normalized_similarity(cand.code, pt.oracle) if cand.code else None
             cats[category] += 1
-            append_jsonl(path, _eval_record(ctx, tag, gen, pt, cand, ev, category, detail, sim, ihash))
+            append_jsonl(path, _eval_record(ctx, tag, gen, pt, cand, ev, category, detail, sim, ihash, kind))
         others = ", ".join(f"{k}={v}" for k, v in sorted(cats.items()) if k != "pass")
-        msg = "；".join(x for x in (others, missing["message"]) if x)
-        results.append(_timed("evaluate", f"{m}/{tag}", t0, ok=ctx.allow_missing or missing["missing"] == 0,
-                              message=msg,
+        bad = _unreliable_tasks(path, m, in_scope)
+        msg = "；".join(x for x in (others, missing["message"], _unreliable_note(bad)) if x)
+        results.append(_timed("evaluate", f"{m}/{tag}{kind.suffix}", t0,
+                              ok=(ctx.allow_missing or missing["missing"] == 0) and not bad, message=msg,
                               detail={"evaluated": len(prepared), "pass": cats["pass"],
                                       "stale_generations": stale_gen[m], "missing": missing["missing"],
                                       "categories": {k: v for k, v in cats.items()}}))
-        _write_completeness(ctx.ws, tag, comp_cells, {m}, set(levels_l), scope_corpora)
+        _write_completeness(ctx.ws, tag, comp_cells, {m}, set(levels_l), scope_corpora, kind)
     return results
 
 
+def _unreliable_tasks(path: Path, model: str, in_scope: Callable[[dict], bool]) -> set[tuple[str, str]]:
+    """这个模型在范围内的评测记录里，``unchanged`` 的候选却通过了项目测试的修复题（生成任务的记录没有 ``unchanged``，恒为空）。"""
+    return unreliable_tasks(r for r in read_jsonl(path) if r.get("model") == model and in_scope(r))
+
+
+def _unreliable_note(bad: set[tuple[str, str]]) -> str:
+    """评测阶段的提示：这些修复题的变异体没有被测试稳定地杀死（模型什么也没改，测试却过了），报告会把它们整题剔除，
+    阶段按失败处理（不能悄悄把它们算进通过率）。"""
+    if not bad:
+        return ""
+    names = ", ".join(sorted(tid for _, tid in bad)[:3])
+    return f"{len(bad)} 道修复题的候选与变异体相同（unchanged）却通过了项目测试，变异体不可靠（{names}{' 等' if len(bad) > 3 else ''}）"
+
+
 def _completeness(ctx: Context, model: str, plan: dict[str, PlannedTask], gens: list[dict], have: set,
-                  todo: list) -> tuple[dict, list[dict]]:
+                  todo: list, kind: TaskKind) -> tuple[dict, list[dict]]:
     """某个模型在 plan 范围内「应有多少样本、评测了多少、缺多少」。
 
     应有 = 出了题的任务数 × 每个任务的样本数（样本数取这个模型已有回复和失败记录里最大的样本编号 + 1，至少 1）。
     缺的样本分三种：生成调用失败（generation-failures 里有记录）、回复过期（提示词变了）、还没生成。
     todo 里的样本马上就会被评测，不算缺。
     """
-    failures = {(r.get("task_id"), r.get("sample_idx")) for r in read_jsonl(ctx.ws.generation_failures_file(model))
+    failures = {(r.get("task_id"), r.get("sample_idx")) for r in read_jsonl(kind.failures_file(ctx.ws, model))
                 if r.get("task_id") in plan}
     idxs = [g.get("sample_idx", 0) for g in gens if g.get("task_id") in plan and isinstance(g.get("sample_idx"), int)]
     idxs += [i for (tid, i) in failures if isinstance(i, int)]
@@ -1080,10 +1604,89 @@ def _completeness(ctx: Context, model: str, plan: dict[str, PlannedTask], gens: 
     return {"missing": tot["missing"], "message": msg}, rows
 
 
-def _write_completeness(ws: Workspace, tag: str, rows: list[dict], models: set, levels: set, corpora: set) -> None:
-    """把这次范围内的完整性记录并入 completeness-<tag>.json（范围外的格原样保留）。"""
-    path = ws.completeness_file(tag)
+def _write_completeness(ws: Workspace, tag: str, rows: list[dict], models: set, levels: set, corpora: set,
+                        kind: Optional[TaskKind] = None) -> None:
+    """把这次范围内的完整性记录并入 completeness-<tag>.json（修复任务是 completeness-repair-<tag>.json；范围外的格原样保留）。"""
+    path = (kind or TASK_KINDS["generate"]).completeness_file(ws, tag)
     old = (read_json(path) or {}).get("cells", [])
     kept = [c for c in old if not (c.get("model") in models and c.get("level") in levels and c.get("corpus") in corpora)]
     write_json(path, {"schema_version": SCHEMA_VERSION, "tag": tag, "created": now_iso(),
                       "cells": sorted(kept + rows, key=lambda c: (c["model"], c["level"], c["corpus"]))})
+
+
+# ----------------------------------------------------------------------
+# check-mutants：把 mutate 选定的变异体在沙箱里回放复核
+# ----------------------------------------------------------------------
+def stage_check_mutants(ctx: Context, spec: CorpusSpec, levels: Optional[Iterable[str]] = None, *,
+                        with_oracle: bool = False) -> StageResult:
+    """回放复核 mutate 选定的变异体：每个出了题的（目标, 级别），把变异体当作候选再走一遍 evaluate（相当于 ``mock-unchanged`` 的
+    评测，但不经过 generate / evaluate 两个阶段，也不写评测结果），要求都在测试阶段失败；``with_oracle`` 为真时，再把**去注释后的
+    原函数**放回副本跑一遍，要求都通过（oracle 回放）。
+
+    回放用 :func:`plan_repair_tasks` 取题，所以会像出题一样核对 mutate 产出有没有过期（过期直接报 StageError）。统计：
+
+    * ``killed``：回放仍在测试阶段失败（归因属于 ``test_fail`` / ``runtime_crash`` / ``runtime_timeout``）；
+    * ``same_mode``：回放的归因与 mutate 记下的 ``kill_mode`` 相同，``flipped`` 是不同的（崩溃 / 超时 / OOM 的结局随负载变，
+      两种结局都算被杀死，只影响分层标签；``--jobs 1`` 在安静的机器上回放可以看到哪些标签不稳定）；
+    * ``passed``：回放通过了项目测试（变异体没有被稳定地杀死，**阶段失败**）；``other``：既不是失败于测试阶段也没通过（编译 / 构建
+      没过等，同样算失败）；
+    * ``oracle_failed``：去注释的原函数没通过（``with_oracle``）。
+
+    结果写进 ``results/mutants-<corpus>.check.json``（``experiment_record`` 的实验记录据此出表），不改动 mutate 的任何产出。
+    """
+    t0 = time.monotonic()
+    planned, voids = plan_repair_tasks(ctx, spec, levels)
+    sandbox = ctx.need_sandbox()
+
+    def one(pt: PlannedTask) -> dict[str, Any]:
+        task = pt.task
+        ev = evaluate(pt.spec, pt.obf_root, pt.located, task.mutant_code, sandbox, REPLAY_MODEL, f"{task.task_id}#replay", 0,
+                      work_root=ctx.ws.work)
+        category = attribute(ev, Candidate(task.mutant_code, []))[0]
+        row: dict[str, Any] = {"task_id": task.task_id, "level": task.level, "recorded": pt.kill_mode, "replay": category,
+                               "stage": ev.stage}
+        if with_oracle:
+            original = strip_function_comments(pt.oracle)
+            ev0 = evaluate(pt.spec, pt.obf_root, pt.located, original, sandbox, REPLAY_MODEL, f"{task.task_id}#oracle", 0,
+                           work_root=ctx.ws.work)
+            row["oracle"] = attribute(ev0, Candidate(original, []))[0]
+        return row
+
+    rows = list(run_ordered(one, planned, ctx.jobs, f"check-mutants {spec.name}", every=20))
+    per_level: dict[str, Counter] = {}
+    flipped: list[dict] = []
+    bad: list[dict] = []
+    for row in rows:
+        slot = per_level.setdefault(row["level"], Counter())
+        slot["replayed"] += 1
+        killed = row["stage"] == "test" and row["replay"] in KILL_MODES
+        slot["killed"] += killed
+        slot["same_mode"] += row["replay"] == row["recorded"]
+        slot["passed"] += row["replay"] == "pass"
+        slot["other"] += not killed and row["replay"] != "pass"
+        slot["oracle_failed"] += "oracle" in row and row["oracle"] != "pass"
+        if killed and row["replay"] != row["recorded"]:
+            flipped.append({k: row[k] for k in ("task_id", "recorded", "replay")})
+        if not killed or row.get("oracle", "pass") != "pass":
+            bad.append(row)
+    total = Counter()
+    for slot in per_level.values():
+        total.update(slot)
+    hashes = {pt.task.level: pt.mutants_hash for pt in planned}
+    write_json(ctx.ws.mutants_check_file(spec.name), {
+        "schema_version": SCHEMA_VERSION, "corpus": spec.name, "created": now_iso(), "with_oracle": with_oracle,
+        "inputs": {"mutants": hashes, "env": ctx.env(full=True), "seed": ctx.seed}, "sandbox": sandbox_identity(sandbox),
+        "levels": {lv: dict(per_level[lv]) for lv in LEVELS if lv in per_level}, "total": dict(total),
+        "flipped": flipped, "failed": bad, "voided": voids})
+    ok = not bad
+    msg = ""
+    if bad:
+        msg = f"{len(bad)} 个变异体回放不合格（" + ", ".join(f"{r['task_id']}={r['replay']}" for r in bad[:3]) + \
+              (" 等" if len(bad) > 3 else "") + "）：没有被稳定地杀死，或去注释的原函数没通过"
+    elif flipped:
+        msg = f"{len(flipped)} 个变异体的杀死方式与 mutate 记录的不同（两种结局都算被杀死，只影响分层标签）"
+    return _timed("check-mutants", spec.name, t0, ok=ok, message=msg,
+                  detail={"replayed": total["replayed"], "killed": total["killed"], "same_mode": total["same_mode"],
+                          "passed": total["passed"], "other": total["other"], "flipped": len(flipped),
+                          **({"oracle_failed": total["oracle_failed"]} if with_oracle else {})})
+

@@ -53,6 +53,68 @@ class TestEditsAndRender:
         assert E.render(b"int a;\n", []) == b"int a;\n"
 
 
+class TestMatchClose:
+    """括号配对：structure 的 ``_FileCtx`` 与缺陷修复任务的 mutate 共用这一份（以前各抄一份）。"""
+
+    def test_pairs_nested_brackets_of_every_kind(self):
+        t = ["f", "(", "a", "[", "1", "]", ",", "{", "x", "}", ")", ";"]
+        assert E.match_close(t, 1) == 10 and E.match_close(t, 3) == 5 and E.match_close(t, 7) == 9
+
+    def test_returns_none_when_the_brackets_do_not_pair(self):
+        assert E.match_close(["(", "a"], 0) is None                       # 没有闭括号
+        assert E.match_close(["(", "[", ")", "]"], 0) is None            # 交叉
+        assert E.match_close(["(", "a", "}"], 0) is None                  # 种类不符
+        assert E.match_close([")", "("], 0) is None                        # 起点就是闭括号
+
+    def test_starts_from_any_index_and_ignores_what_is_before_it(self):
+        t = [")", "(", "x", ")"]
+        assert E.match_close(t, 1) == 3
+
+    def test_the_structure_context_delegates_to_it(self):
+        from bench.obfuscate import structure
+        ctx = structure._FileCtx.__new__(structure._FileCtx)
+        ctx.T = ["{", "(", ")", "}", "["]
+        assert ctx.match_close(0) == 3 == E.match_close(ctx.T, 0) and ctx.match_close(4) is None
+
+
+class TestMacroIntervals:
+    def test_nested_and_overlapping_calls_merge_and_touching_ones_stay_apart(self):
+        m = E.MacroIntervals([(10, 20), (12, 15), (18, 30), (40, 50), (50, 60)])
+        assert m.intervals == [(10, 30), (40, 50), (50, 60)]
+        assert E.MacroIntervals([]).intervals == [] and not E.MacroIntervals([]) and E.MacroIntervals([(0, 1)])
+
+    def test_a_range_inside_a_macro_call_or_overlapping_it_conflicts(self):
+        m = E.MacroIntervals([(10, 20)])
+        assert m.conflicts(12, 15)                 # 宏实参
+        assert m.conflicts(5, 12) and m.conflicts(18, 25)         # 部分重叠
+        assert m.conflicts(10, 20)                 # 宏生成的整条语句：范围相等不放行
+        assert not m.conflicts(0, 10) and not m.conflicts(20, 30)        # 紧挨着不算重叠
+        assert not m.conflicts(5, 25) and not m.conflicts(0, 100)        # 整个宏调用落在范围里面：放行
+
+    def test_allow_equal_lets_a_condition_that_is_exactly_one_macro_call_through(self):
+        m = E.MacroIntervals([(10, 20)])
+        assert m.conflicts(10, 20) and not m.conflicts(10, 20, allow_equal=True)
+        assert m.conflicts(12, 15, allow_equal=True) and m.conflicts(5, 12, allow_equal=True)       # 其它冲突不受影响
+
+    def test_the_structure_context_and_mutate_agree_on_every_range(self):
+        """structure（require_not_macro）与 mutate（macro_conflict）判定宏冲突用的是同一个实现：穷举小区间核对。"""
+        from bench import mutate
+        from bench.obfuscate import structure
+        raw = [(3, 9), (5, 7), (12, 14), (14, 18)]
+        sctx = structure._FileCtx.__new__(structure._FileCtx)
+        sctx.macro_iv = E.MacroIntervals(raw)
+        mctx = mutate._FuncCtx.__new__(mutate._FuncCtx)
+        mctx.macros = E.MacroIntervals(raw)
+        for s in range(0, 22):
+            for e in range(s + 1, 23):
+                try:
+                    sctx.require_not_macro(s, e)
+                    structure_says = False
+                except structure._Reject:
+                    structure_says = True
+                assert mctx.macro_conflict(s, e) is structure_says, (s, e)
+
+
 class TestRollback:
     def edits(self, n=8):
         return [E.Edit("k", i * 10, i * 10 + 5, [b"ok"]) for i in range(n)]

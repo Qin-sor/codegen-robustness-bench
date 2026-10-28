@@ -1,0 +1,74 @@
+{
+ "schema_version": 1,
+ "corpus": "sds",
+ "created": "2026-10-28T00:32:53+00:00",
+ "with_oracle": true,
+ "inputs": {
+  "mutants": {
+   "L0": "bc9fffe27bd8d472",
+   "L1": "4dba0441203e2018",
+   "L2": "a565a614f362f2fa",
+   "L3": "1454a4d1b2100570"
+  },
+  "env": "f66539fef467dd81",
+  "seed": 20261027
+ },
+ "sandbox": {
+  "image": "gcc:13",
+  "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",
+  "cpus": 1.0,
+  "memory": "1g",
+  "pids": 256,
+  "timeout_s": 120
+ },
+ "levels": {
+  "L0": {
+   "replayed": 16,
+   "killed": 16,
+   "same_mode": 16,
+   "passed": 0,
+   "other": 0,
+   "oracle_failed": 0
+  },
+  "L1": {
+   "replayed": 16,
+   "killed": 16,
+   "same_mode": 16,
+   "passed": 0,
+   "other": 0,
+   "oracle_failed": 0
+  },
+  "L2": {
+   "replayed": 16,
+   "killed": 16,
+   "same_mode": 16,
+   "passed": 0,
+   "other": 0,
+   "oracle_failed": 0
+  },
+  "L3": {
+   "replayed": 16,
+   "killed": 16,
+   "same_mode": 16,
+   "passed": 0,
+   "other": 0,
+   "oracle_failed": 0
+  }
+ },
+ "total": {
+  "replayed": 64,
+  "killed": 64,
+  "same_mode": 64,
+  "passed": 0,
+  "other": 0,
+  "oracle_failed": 0
+ },
+ "flipped": [],
+ "failed": [],
+ "voided": {
+  "L0": {},
+  "L1": {},
+  "L2": {},
+  "L3": {}
+ }
+}

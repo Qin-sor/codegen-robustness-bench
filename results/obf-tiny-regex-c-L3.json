@@ -3,7 +3,7 @@
  "corpus": "tiny-regex-c",
  "level": "L3",
  "seed": 20261027,
- "created": "2026-10-27T17:22:56+00:00",
+ "created": "2026-10-27T23:08:27+00:00",
  "inputs": {
   "spec": "a21c46406b978b18",
   "pristine": "70797e7b96c7c5b3",
@@ -12,7 +12,7 @@
   "strict": null,
   "targets": "82de2918730e3f02",
   "version": 1,
-  "code": "cf3da71fe7c9228e",
+  "code": "ae3c821757d5ac82",
   "clang": {
    "python_binding": "14.0",
    "library": "libclang.so.1",
@@ -20,12 +20,12 @@
   },
   "env": "fe40f23a8559c0bb"
  },
- "input_hash": "a1994275c5802dd0",
+ "input_hash": "546bfcff4603e077",
  "strict_stringify": false,
  "tree_hash": "b92dc4169fe53dc9",
  "ok": true,
  "problems": [],
- "elapsed_s": 0.9,
+ "elapsed_s": 1.0,
  "rename_map": {
   "MAX_CHAR_CLASS_LEN": "M_3",
   "MAX_REGEXP_OBJECTS": "M_5",
@@ -288,7 +288,7 @@
   "missing": [],
   "tests_passed": true,
   "timed_out": false,
-  "duration_s": 0.5154609690071084,
+  "duration_s": 0.6157438619993627,
   "n_targets": 8
  },
  "oracle_gate": {
@@ -317,15 +317,15 @@
    "tiny-regex-c:re.c:re_matchp"
   ],
   "inputs": {
-   "obf": "a1994275c5802dd0",
+   "obf": "546bfcff4603e077",
    "tree": "b92dc4169fe53dc9",
    "targets": "82de2918730e3f02",
    "version": 2,
-   "code": "6ec45e679e436985",
+   "code": "a726db396abe17c9",
    "env": "f66539fef467dd81"
   },
-  "input_hash": "a11e8e51dabac5c7",
-  "created": "2026-10-27T17:29:20+00:00",
+  "input_hash": "71cae82dec787ed3",
+  "created": "2026-10-27T23:14:46+00:00",
   "sandbox": {
    "image": "gcc:13",
    "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",

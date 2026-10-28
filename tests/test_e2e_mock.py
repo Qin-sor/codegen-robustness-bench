@@ -10,7 +10,9 @@
   （换了功能规格后旧回复和旧结果作废），用 main() 把每条子命令按顺序走一遍，以及 mini 上 L0–L3 × oracle / broken / wrong
   的全链路 e2e。e2e 的断言是设计文档 §4.15 / §6.3 的验收标准：oracle 100% pass、broken 100% compile_syntax、
   wrong 不通过且归因与 stub-kill 记录的杀死方式一致，加上幂等（重跑全部跳过）、副本 verify 与 oracle gate 全过、
-  报告文件齐全且没有过期记录、L1–L3 的提示词里不再有目标函数的真名。
+  报告文件齐全且没有过期记录、L1–L3 的提示词里不再有目标函数的真名；
+  缺陷修复任务（附录 §9）同样在 e2e 里跑：oracle 100% pass 且 restored、unchanged 100% 不通过且 unchanged=True、
+  broken 100% compile_syntax，变异体记录与结果记录的字段、修复提示词不泄漏原名、报告并列两类任务。
 
 全部输出放在项目的 ``tmp/pytest-e2e/`` 下，测试结束即清理，不碰 ``results/``。
 """
@@ -40,6 +42,7 @@ from bench.prompt import PROMPT_DIGEST
 from bench.provenance import code_digest
 from bench.sandbox import DockerSandbox
 from bench.store import SCHEMA_VERSION, Workspace
+from bench.vocab import KILL_MODES
 from tests.helpers import BANNED, MINI, ROOT, needs_docker
 
 
@@ -1338,7 +1341,8 @@ class TestRealClientThroughTheStages:
 # ----------------------------------------------------------------------
 # 命令行（不需要 docker 的部分）
 # ----------------------------------------------------------------------
-COMMANDS = ("prepare", "coverage", "targets", "obfuscate", "verify", "describe", "generate", "evaluate", "report", "e2e")
+COMMANDS = ("prepare", "coverage", "targets", "obfuscate", "verify", "mutate", "describe", "generate", "evaluate", "report",
+            "e2e")
 
 
 class TestCli:
@@ -1361,6 +1365,10 @@ class TestCli:
         assert ap.parse_args(["obfuscate"]).strict_stringify == "auto"
         assert ap.parse_args(["e2e"]).backend == "mock"
         assert ap.parse_args(["report"]).formats == ["md", "csv", "svg"]
+        ns = ap.parse_args(["mutate"])
+        assert (ns.levels, ns.max_tries) == (None, 12)
+        assert [ap.parse_args([c, *(["--model", "m"] if c == "evaluate" else [])]).task for c in ("generate", "evaluate", "report")] \
+            == ["all", "all", "all"]
 
     def test_default_model_names_are_current_presets(self):
         from bench import cli
@@ -1621,6 +1629,13 @@ def read_results(e2e_result) -> list[dict]:
     return store.read_jsonl(e2e_result.ws.results_file("e2e"))
 
 
+def read_repair(e2e_result) -> list[dict]:
+    return store.read_jsonl(e2e_result.ws.repair_results_file("e2e"))
+
+
+REPAIR_MODELS = ("mock-oracle", "mock-broken", "mock-wrong", "mock-unchanged", "mock-reformat", "mock-touched")
+
+
 @needs_docker
 class TestE2E:
     N_MODELS = 3
@@ -1749,9 +1764,9 @@ class TestE2E:
         assert "| mock-oracle | L3 |" in md and "100.0%" in md and "输入校验" not in md
         assert "runtime_crash" in md                                    # 归因分布表里有这一类
         rows = list(csv.DictReader(paths["csv"].open(encoding="utf-8")))
-        oracle_all = [r for r in rows if r["model"] == "mock-oracle" and r["corpus"] == "ALL"]
+        oracle_all = [r for r in rows if r["model"] == "mock-oracle" and r["corpus"] == "ALL" and r["task"] == "generate"]
         assert len(oracle_all) == 4 and all(float(r["pass_rate"]) == 1.0 for r in oracle_all)
-        wrong_all = [r for r in rows if r["model"] == "mock-wrong" and r["corpus"] == "ALL"]
+        wrong_all = [r for r in rows if r["model"] == "mock-wrong" and r["corpus"] == "ALL" and r["task"] == "generate"]
         assert all(float(r["pass_rate"]) == 0.0 and float(r["compile_rate"]) == 1.0 for r in wrong_all)
         root = ET.fromstring(paths["svg"].read_text(encoding="utf-8"))
         assert root.tag.endswith("svg")
@@ -1803,11 +1818,150 @@ class TestE2E:
             victim.write_bytes(data)
         assert report.validate_records(read_results(e2e), ws).valid == recs
 
+    # -- 缺陷修复任务（附录 §9） --
+    def test_repair_all_levels_times_six_modes_were_run_and_every_killed_pair_became_a_task(self, e2e):
+        recs = read_repair(e2e)
+        n_pairs = len(store.read_jsonl(e2e.ws.targets_file("mini"))) * len(LEVELS)
+        mutants = [r for lv in LEVELS for r in store.read_jsonl(e2e.ws.mutants_file("mini", lv))]
+        assert len(mutants) >= 0.9 * n_pairs and len(mutants) == len({(m["target_id"], m["level"]) for m in mutants})
+        assert {(r["model"], r["level"]) for r in recs} == {(m, lv) for m in REPAIR_MODELS for lv in LEVELS}
+        assert len(recs) == len(mutants) * len(REPAIR_MODELS)
+        assert {r["task"] for r in recs} == {"repair"} and all(r["task_id"].endswith("#repair") for r in recs)
+
+    def test_repair_oracle_mode_is_100_percent_pass_and_restored(self, e2e):
+        oracle = [r for r in read_repair(e2e) if r["model"] == "mock-oracle"]
+        assert oracle and all(r["category"] == "pass" and r["stage"] == "pass" for r in oracle)
+        assert all(r["restored"] is True and r["unchanged"] is False and r["similarity"] == 1.0 for r in oracle)
+
+    def test_repair_unchanged_mode_never_passes_and_is_flagged_unchanged(self, e2e):
+        unchanged = [r for r in read_repair(e2e) if r["model"] == "mock-unchanged"]
+        assert unchanged and not any(r["category"] == "pass" for r in unchanged)
+        assert all(r["unchanged"] is True and r["restored"] is False and r["stage"] == "test" for r in unchanged)
+        assert all(r["category"] in KILL_MODES and r["similarity"] < 1.0 for r in unchanged)
+        # 候选就是 kill 检查时被杀死的那段文本，同一个判定路径给出同一个归因（个别依赖负载的超时 / OOM 除外）
+        assert sum(r["category"] == r["kill_mode"] for r in unchanged) >= 0.95 * len(unchanged)
+
+    def test_repair_reformat_mode_passes_and_counts_as_restored_although_the_text_differs(self, e2e):
+        """原函数换了排版、加了注释：规范化比较只忽略这两样，认它是逐字还原；候选的文本确实和原函数不同。"""
+        reformat = [r for r in read_repair(e2e) if r["model"] == "mock-reformat"]
+        assert reformat and all(r["category"] == "pass" and r["stage"] == "pass" for r in reformat)
+        assert all(r["restored"] is True and r["unchanged"] is False for r in reformat)
+        assert all(r["similarity"] == 1.0 for r in reformat)             # 相似度的词法器丢掉注释和排版，也是 1.0
+
+    def test_repair_touched_mode_keeps_the_defect_and_is_neither_unchanged_nor_restored(self, e2e):
+        """变异体加了一条无害语句：缺陷还在，测试照样失败；但这不算「什么也没改」，也不是还原。"""
+        touched = [r for r in read_repair(e2e) if r["model"] == "mock-touched"]
+        assert touched and not any(r["category"] == "pass" for r in touched)
+        assert all(r["stage"] == "test" and r["category"] in KILL_MODES for r in touched)
+        assert all(r["unchanged"] is False and r["restored"] is False for r in touched)
+
+    def test_the_replay_command_confirmed_every_mutant_and_the_original_functions(self, e2e):
+        data = store.read_json(e2e.ws.mutants_check_file("mini"))
+        mutants = [r for lv in LEVELS for r in store.read_jsonl(e2e.ws.mutants_file("mini", lv))]
+        total = data["total"]
+        assert data["with_oracle"] is True and total["replayed"] == total["killed"] == len(mutants)
+        assert total["passed"] == total["other"] == total["oracle_failed"] == 0 and data["failed"] == []
+        assert total["same_mode"] >= 0.95 * total["replayed"]
+
+    def test_repair_broken_mode_is_100_percent_compile_syntax(self, e2e):
+        broken = [r for r in read_repair(e2e) if r["model"] == "mock-broken"]
+        assert broken and all(r["category"] == "compile_syntax" and r["stage"] == "syntax" for r in broken)
+        assert all(r["unchanged"] is False and r["restored"] is False for r in broken)
+
+    def test_repair_wrong_mode_never_passes_and_matches_the_stub_kill_record(self, e2e):
+        wrong = [r for r in read_repair(e2e) if r["model"] == "mock-wrong"]
+        kill = {t["target_id"]: t["stub_kill_mode"] for t in store.read_jsonl(e2e.ws.targets_file("mini"))}
+        assert wrong and not any(r["category"] == "pass" for r in wrong) and all(r["stage"] == "test" for r in wrong)
+        assert all(r["category"] == kill[r["target_id"]] == r["stub_kill_mode"] for r in wrong)
+
+    def test_repair_mutant_records_describe_the_site_and_the_search(self, e2e):
+        from bench.mutate import OPERATORS
+        ws = e2e.ws
+        summary = store.read_json(ws.mutants_summary_file("mini"))
+        orig = {t["target_id"]: t for t in store.read_jsonl(ws.targets_file("mini"))}
+        per_level: dict[str, dict[str, dict]] = {}
+        for lv in LEVELS:
+            recs = store.read_jsonl(ws.mutants_file("mini", lv))
+            ent = summary["levels"][lv]
+            assert len(recs) == ent["n_killed"] and {r["input_hash"] for r in recs} == {ent["input_hash"]}
+            assert ent["n_killed"] + ent["n_abandoned"] == ent["n_searched"] <= ent["n_targets"] == len(orig)
+            assert sum(ent["operators"].values()) == len(recs) and sum(ent["kill_modes"].values()) == len(recs)
+            for r in recs:
+                assert r["operator"] in OPERATORS and r["kill_mode"] in KILL_MODES and r["level"] == lv
+                assert 1 <= r["tried_sites"] <= 12
+                assert r["tried_sites"] == 1 + r["equivalent_count"] + r["compile_fail_count"] + r["unstable_count"]
+                assert r["kill_recheck"] in KILL_MODES                      # 默认复核了，复核时仍然失败才出题
+                assert r["original_text"] and r["mutant_code"] and "/*" not in r["mutant_code"] and "//" not in r["mutant_code"]
+                if lv == "L0":
+                    assert r["same_operator_as_L0"] is True and r["same_site_as_L0"] is True and r["anchor"] == "none"
+            per_level[lv] = {r["target_id"]: r for r in recs}
+        for tid, r in per_level["L1"].items():       # 复用 L0 的算子：同算子的比例远高于不复用时的三成左右
+            assert r["same_operator_as_L0"] == (r["operator"] == per_level["L0"][tid]["operator"])
+            # L1 只改名字：位点一一对应，选中的就是 L0 的那个位点（算子与序号都相同）
+            assert r["same_site_as_L0"] is True and (r["operator"], r["site_index"]) == (
+                per_level["L0"][tid]["operator"], per_level["L0"][tid]["site_index"])
+        same = sum(r["same_operator_as_L0"] for lv in LEVELS[1:] for r in per_level[lv].values())
+        assert same >= 0.9 * sum(len(per_level[lv]) for lv in LEVELS[1:])
+        sited = [r["same_site_as_L0"] for lv in ("L2", "L3") for r in per_level[lv].values()]
+        assert sum(sited) >= 0.6 * len(sited)
+        assert summary["four_level"]["n_all_levels"] >= 0.9 * len(orig)
+        # 结果记录里的 mutation 与 mutants 文件一致
+        for r in read_repair(e2e):
+            m = per_level[r["level"]][r["target_id"]]
+            assert r["mutation"] == {k: m[k] for k in ("operator", "site_index", "original_text", "mutated_text")}
+            assert r["kill_mode"] == m["kill_mode"] and r["same_operator_as_L0"] == m["same_operator_as_L0"]
+
+    def test_repair_prompts_hide_original_names_and_comments_from_l1_on(self, e2e):
+        from bench.prompt import REPAIR_PROMPT_DIGEST, RepairTask, build_repair_messages
+        tasks = [RepairTask.from_dict(t) for t in store.read_jsonl(e2e.ws.repair_tasks_file)]
+        orig = {t["target_id"]: t["name"] for t in store.read_jsonl(e2e.ws.targets_file("mini"))}
+        assert tasks and all(t["prompt_digest"] == REPAIR_PROMPT_DIGEST[:16] for t in store.read_jsonl(e2e.ws.repair_tasks_file))
+        for t in tasks:
+            msgs = build_repair_messages(t)
+            user = msgs[1]["content"]
+            pattern = re.compile(rf"\b{re.escape(orig[t.target_id])}\b")
+            assert "Buggy function:" in user and t.mutant_code in user and "Functional specification" not in user
+            if t.level == "L0":
+                assert pattern.search(user) and t.obf_name == orig[t.target_id]
+            else:
+                assert not pattern.search(user), (t.task_id, "修复提示词泄漏了原函数名")
+            assert "/*" not in t.mutant_code and "//" not in t.mutant_code
+
+    def test_repair_records_carry_input_hashes_and_the_report_has_both_tasks(self, e2e):
+        from bench.prompt import REPAIR_PROMPT_DIGEST
+        recs = read_repair(e2e)
+        assert all(r["schema_version"] == SCHEMA_VERSION and r["inputs"]["prompt"] == REPAIR_PROMPT_DIGEST[:16] for r in recs)
+        assert all(set(report.REQUIRED_INPUTS_REPAIR) <= set(r["inputs"]) for r in recs)
+        assert report.validate_records(recs, e2e.ws, task="repair").valid == recs
+        md = e2e.report.paths["md"].read_text(encoding="utf-8")
+        assert "## 5. 缺陷修复任务（repair）" in md and "### 5.4 可比子集（四级是同一个缺陷）" in md and "两类任务的输入差异" in md
+        assert "| mock-unchanged | L0 |" in md and "unchanged 率" in md and "restored 率" in md
+        assert e2e.report.by_task["repair"]["used"] == len(recs) and e2e.report.n_stale == 0
+        rows = list(csv.DictReader(e2e.report.paths["csv"].open(encoding="utf-8")))
+        unchanged_all = [r for r in rows if r["task"] == "repair" and r["model"] == "mock-unchanged" and r["corpus"] == "ALL"]
+        assert len(unchanged_all) == 4 and all(float(r["unchanged_rate"]) == 1.0 and float(r["pass_rate"]) == 0.0
+                                               for r in unchanged_all)
+        reformat_all = [r for r in rows if r["task"] == "repair" and r["model"] == "mock-reformat" and r["corpus"] == "ALL"]
+        assert all(float(r["pass_rate"]) == 1.0 and float(r["restored_rate"]) == 1.0 and float(r["unchanged_rate"]) == 0.0
+                   for r in reformat_all)
+        oracle_all = [r for r in rows if r["task"] == "repair" and r["model"] == "mock-oracle" and r["corpus"] == "ALL"]
+        assert all(float(r["pass_rate"]) == 1.0 and float(r["restored_rate"]) == 1.0 for r in oracle_all)
+
+    def test_a_forged_mutants_hash_makes_repair_results_stale(self, e2e):
+        recs = read_repair(e2e)
+        forged = [{**recs[0], "inputs": {**recs[0]["inputs"], "mutants": "forged"}}, *recs[1:]]
+        v = report.validate_records(forged, e2e.ws, task="repair")
+        assert len(v.valid) == len(recs) - 1 and v.stale[0][1].startswith("变异体已重做")
+
     def test_report_command_on_the_e2e_workspace(self, e2e, capsys):
         base = e2e.base
         assert main(["report", "--tag", "e2e", "--workspace", str(base), "--format", "md", "csv"]) == 0
         out = capsys.readouterr().out
-        assert f"纳入统计 {len(read_results(e2e))} 条" in out and "输入哈希不符 0 条" in out
+        n_all = len(read_results(e2e)) + len(read_repair(e2e))
+        assert f"纳入统计 {n_all} 条" in out and "输入哈希不符 0 条" in out
+        assert f"repair：记录 {len(read_repair(e2e))} 条" in out
+        assert main(["report", "--tag", "e2e", "--workspace", str(base), "--format", "md", "--task", "generate"]) == 0
+        assert f"纳入统计 {len(read_results(e2e))} 条" in capsys.readouterr().out
 
     def test_evaluate_command_is_idempotent_and_force_redoes_it(self, e2e, capsys):
         base = e2e.base
@@ -1932,15 +2086,23 @@ class TestIncrementalRecompute:
 class TestCliPipeline:
     """用 main() 把每条子命令按流水线顺序走一遍（L0 + L1、每个语料最多 6 个目标，比 e2e 小得多）。"""
 
+    #: mini 的 ``parse_digits`` 删掉 ``i++`` 的变异体是死循环：mutate 与 check-mutants 真跑沙箱时，每个要等满 spec 的 ``timeout_s``
+    #: （kill 检查一次、复核一次，L0 和 L1 还要依次处理），夹具里的 60 秒让一次 mutate 要四分钟。这个类换成 15 秒的 spec 副本
+    #: （mini 的构建加测试不到 2 秒），夹具本身不动，e2e 与别的测试照旧用 60 秒
+    CLI_TIMEOUT_S = 15
+
     @pytest.fixture(scope="class")
     def cli_ws(self):
         base = ROOT / "tmp" / "pytest-e2e" / f"cli-{uuid.uuid4().hex[:8]}"
         base.mkdir(parents=True)
+        spec = json.loads((MINI / "spec.json").read_text(encoding="utf-8"))
+        spec["timeout_s"] = self.CLI_TIMEOUT_S
+        (base / "spec-fast.json").write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8")
         yield base
         shutil.rmtree(base, ignore_errors=True)
 
     def call(self, cli_ws, *args) -> int:
-        spec = str(MINI / "spec.json")
+        spec = str(cli_ws / "spec-fast.json")
         return main([args[0], "--corpus", spec, "--workspace", str(cli_ws), "--jobs", "6", "--seed", "11", *args[1:]])
 
     def test_pipeline_through_main(self, cli_ws, capsys):
@@ -1979,6 +2141,55 @@ class TestCliPipeline:
         md = ws.summary_file("cli", ".md").read_text(encoding="utf-8")
         assert "| mock-oracle | L1 |" in md and "## 2. 相对 L0 的变化" in md
         assert ws.summary_file("cli", ".csv").is_file() and not ws.summary_file("cli", ".svg").exists()
+
+    def test_repair_through_main(self, cli_ws, capsys):
+        """mutate → generate --task repair → evaluate --task repair → report（默认 --task all，两类任务并列）。
+        排在换种子的测试之前：它用的是前一个测试做完 verify 的 L0 + L1 副本。"""
+        ws = Workspace.under(cli_ws)
+        assert self.call(cli_ws, "mutate", "--level", "L0", "L1", "--max-tries", "12") == 0
+        out = capsys.readouterr().out
+        assert "[mutate] mini: 完成" in out and "killed=12" in out and "abandoned=0" in out
+        assert self.call(cli_ws, "mutate", "--level", "L0", "L1") == 0
+        assert "跳过" in capsys.readouterr().out
+        # 参数变了就重做；之后的步骤接着用这份产出（max-tries 只是搜索预算，不决定变异体是否有效，出题时不核对它，
+        # 变回默认值再重做一遍只是多等一轮死循环变异体的超时）
+        assert self.call(cli_ws, "mutate", "--level", "L0", "L1", "--max-tries", "5") == 0
+        out = capsys.readouterr().out
+        assert "跳过" not in out and "killed=12" in out and "abandoned=0" in out
+        # 回放复核：变异体都仍被杀死、去注释的原函数都通过；结果写进 mutants-<语料>.check.json
+        assert self.call(cli_ws, "check-mutants", "--levels", "L0", "L1", "--oracle") == 0
+        out = capsys.readouterr().out
+        assert "[check-mutants] mini: 完成" in out and "replayed=12" in out and "killed=12" in out and "passed=0" in out
+        check = store.read_json(ws.mutants_check_file("mini"))
+        assert check["total"]["replayed"] == 12 and check["with_oracle"] is True and check["failed"] == []
+        assert self.call(cli_ws, "generate", "--model", "mock-oracle", "mock-unchanged", "--task", "repair",
+                         "--levels", "L0", "L1") == 0
+        out = capsys.readouterr().out
+        assert out.count("[repair]") == 2 and out.count("calls=12") == 2 and "修复任务：还没有" not in out
+        assert len(store.read_jsonl(ws.repair_tasks_file)) == 12
+        assert self.call(cli_ws, "evaluate", "--model", "mock-oracle", "mock-unchanged", "--task", "repair",
+                         "--levels", "L0", "L1", "--tag", "cli") == 0
+        out = capsys.readouterr().out
+        assert "evaluated=12" in out and "pass=12" in out and "pass=0" in out
+        recs = store.read_jsonl(ws.repair_results_file("cli"))
+        assert len(recs) == 24 and {r["level"] for r in recs} == {"L0", "L1"}
+        assert all(r["category"] == "pass" and r["restored"] for r in recs if r["model"] == "mock-oracle")
+        assert all(r["category"] != "pass" and r["unchanged"] for r in recs if r["model"] == "mock-unchanged")
+        assert len(store.read_jsonl(ws.results_file("cli"))) == 24                      # 生成任务的结果不受影响
+        assert self.call(cli_ws, "report", "--tag", "cli", "--format", "md", "csv") == 0
+        out = capsys.readouterr().out
+        assert "纳入统计 48 条" in out and "generate：记录 24 条" in out and "repair：记录 24 条" in out
+        md = ws.summary_file("cli", ".md").read_text(encoding="utf-8")
+        assert "## 5. 缺陷修复任务（repair）" in md and "| mock-unchanged | L1 |" in md
+        # 默认 --task all 下 evaluate 一起处理两类任务（都已是最新，全部跳过）
+        assert self.call(cli_ws, "evaluate", "--model", "mock-oracle", "mock-wrong", "--levels", "L0", "L1", "--tag", "cli",
+                         "--unsafe-debug") == 1      # mock-wrong 的修复任务回复还没生成：缺样本，如实报失败
+        out = capsys.readouterr().out
+        assert "[repair]" in out and "缺 12/12 个样本（12 个未生成）" in out
+        # tag 以 repair- 开头会与修复任务的文件撞名：当作用法错误拒绝，不去动任何结果文件
+        assert self.call(cli_ws, "evaluate", "--model", "mock-oracle", "--tag", "repair-x", "--task", "generate",
+                         "--levels", "L0", "--unsafe-debug") == 2
+        assert "repair-" in capsys.readouterr().err
 
     def test_coverage_command_alone_is_idempotent(self, cli_ws, capsys):
         assert self.call(cli_ws, "coverage") == 0

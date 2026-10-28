@@ -1,0 +1,342 @@
+{
+ "schema_version": 1,
+ "corpus": "tinyexpr",
+ "created": "2026-10-28T00:20:41+00:00",
+ "seed": 20261027,
+ "max_tries": 12,
+ "recheck": true,
+ "elapsed_s": 258.93,
+ "levels_computed": [
+  "L0",
+  "L1",
+  "L2",
+  "L3"
+ ],
+ "n_targets": 18,
+ "levels": {
+  "L0": {
+   "input_hash": "c3cb379791c78c13",
+   "inputs": {
+    "spec": "9e56886c54c73a6a",
+    "pristine": "2b917ab30eddd78d",
+    "targets": "12c2f1f5fdb6d84d",
+    "seed": 20261027,
+    "max_tries": 12,
+    "recheck": true,
+    "version": 1,
+    "code": "f489af3d1a89a040",
+    "env": "f66539fef467dd81",
+    "clang": {
+     "python_binding": "14.0",
+     "library": "libclang.so.1",
+     "builtin_include": "497c403da4c32f51"
+    },
+    "strip_comments": true,
+    "level": "L0",
+    "obf": "5f0b6977b04e5cd7",
+    "tree": "2b917ab30eddd78d",
+    "gate": "1bcbb6ae5e3a0621",
+    "ref": null
+   },
+   "n_targets": 18,
+   "n_searched": 18,
+   "n_killed": 18,
+   "n_abandoned": 0,
+   "outcomes": {
+    "killed": 18
+   },
+   "operators": {
+    "ROR": 1,
+    "NEG": 3,
+    "LOR": 3,
+    "OBO": 0,
+    "DGS": 0,
+    "AOR": 1,
+    "RVR": 4,
+    "DST": 6
+   },
+   "kill_modes": {
+    "runtime_crash": 3,
+    "test_fail": 14,
+    "runtime_timeout": 1
+   },
+   "same_operator_as_L0": {
+    "n": 18,
+    "same": 18
+   },
+   "same_site_as_L0": {
+    "n": 18,
+    "same": 18
+   },
+   "anchor": {
+    "none": 18
+   },
+   "n_sites": 382,
+   "tried_sites": 23,
+   "equivalent_count": 5,
+   "compile_fail_count": 0,
+   "parse_fail_count": 0,
+   "unstable_count": 0,
+   "n_rechecked": 18,
+   "n_kill_label_changed": 0,
+   "n_with_orphans": 1,
+   "n_with_comments": 8,
+   "n_strip_checked": 8,
+   "n_strip_failed": 0,
+   "sandbox_seconds": {
+    "pass": 37.5,
+    "runtime_crash": 13.9,
+    "runtime_timeout": 62.9,
+    "test_fail": 57.8
+   },
+   "abandoned": []
+  },
+  "L1": {
+   "input_hash": "038f466f10456c3a",
+   "inputs": {
+    "spec": "9e56886c54c73a6a",
+    "pristine": "2b917ab30eddd78d",
+    "targets": "12c2f1f5fdb6d84d",
+    "seed": 20261027,
+    "max_tries": 12,
+    "recheck": true,
+    "version": 1,
+    "code": "f489af3d1a89a040",
+    "env": "f66539fef467dd81",
+    "clang": {
+     "python_binding": "14.0",
+     "library": "libclang.so.1",
+     "builtin_include": "497c403da4c32f51"
+    },
+    "strip_comments": true,
+    "level": "L1",
+    "obf": "b13823bebd87abd9",
+    "tree": "bffd0c4d08e83fc8",
+    "gate": "58fb9fb69740a224",
+    "ref": "c3cb379791c78c13"
+   },
+   "n_targets": 18,
+   "n_searched": 18,
+   "n_killed": 18,
+   "n_abandoned": 0,
+   "outcomes": {
+    "killed": 18
+   },
+   "operators": {
+    "ROR": 1,
+    "NEG": 3,
+    "LOR": 3,
+    "OBO": 0,
+    "DGS": 0,
+    "AOR": 1,
+    "RVR": 4,
+    "DST": 6
+   },
+   "kill_modes": {
+    "runtime_crash": 3,
+    "test_fail": 14,
+    "runtime_timeout": 1
+   },
+   "same_operator_as_L0": {
+    "n": 18,
+    "same": 18
+   },
+   "same_site_as_L0": {
+    "n": 18,
+    "same": 18
+   },
+   "anchor": {
+    "chosen": 18
+   },
+   "n_sites": 382,
+   "tried_sites": 18,
+   "equivalent_count": 0,
+   "compile_fail_count": 0,
+   "parse_fail_count": 0,
+   "unstable_count": 0,
+   "n_rechecked": 18,
+   "n_kill_label_changed": 0,
+   "n_with_orphans": 1,
+   "n_with_comments": 8,
+   "n_strip_checked": 8,
+   "n_strip_failed": 0,
+   "sandbox_seconds": {
+    "pass": 24.8,
+    "runtime_crash": 13.2,
+    "runtime_timeout": 62.4,
+    "test_fail": 55.6
+   },
+   "abandoned": []
+  },
+  "L2": {
+   "input_hash": "75391a32a5e408bb",
+   "inputs": {
+    "spec": "9e56886c54c73a6a",
+    "pristine": "2b917ab30eddd78d",
+    "targets": "12c2f1f5fdb6d84d",
+    "seed": 20261027,
+    "max_tries": 12,
+    "recheck": true,
+    "version": 1,
+    "code": "f489af3d1a89a040",
+    "env": "f66539fef467dd81",
+    "clang": {
+     "python_binding": "14.0",
+     "library": "libclang.so.1",
+     "builtin_include": "497c403da4c32f51"
+    },
+    "strip_comments": true,
+    "level": "L2",
+    "obf": "2cdb428288a0992d",
+    "tree": "5cdb7b1485505c9d",
+    "gate": "4ac6a54ed4a0ef95",
+    "ref": "c3cb379791c78c13"
+   },
+   "n_targets": 18,
+   "n_searched": 18,
+   "n_killed": 18,
+   "n_abandoned": 0,
+   "outcomes": {
+    "killed": 18
+   },
+   "operators": {
+    "ROR": 1,
+    "NEG": 3,
+    "LOR": 3,
+    "OBO": 0,
+    "DGS": 0,
+    "AOR": 1,
+    "RVR": 4,
+    "DST": 6
+   },
+   "kill_modes": {
+    "runtime_crash": 3,
+    "test_fail": 14,
+    "runtime_timeout": 1
+   },
+   "same_operator_as_L0": {
+    "n": 18,
+    "same": 18
+   },
+   "same_site_as_L0": {
+    "n": 18,
+    "same": 17
+   },
+   "anchor": {
+    "chosen": 17,
+    "no_image": 1
+   },
+   "n_sites": 395,
+   "tried_sites": 18,
+   "equivalent_count": 0,
+   "compile_fail_count": 0,
+   "parse_fail_count": 0,
+   "unstable_count": 0,
+   "n_rechecked": 18,
+   "n_kill_label_changed": 0,
+   "n_with_orphans": 1,
+   "n_with_comments": 8,
+   "n_strip_checked": 8,
+   "n_strip_failed": 0,
+   "sandbox_seconds": {
+    "pass": 22.1,
+    "runtime_crash": 13.0,
+    "runtime_timeout": 61.3,
+    "test_fail": 54.1
+   },
+   "abandoned": []
+  },
+  "L3": {
+   "input_hash": "38e719c25459c020",
+   "inputs": {
+    "spec": "9e56886c54c73a6a",
+    "pristine": "2b917ab30eddd78d",
+    "targets": "12c2f1f5fdb6d84d",
+    "seed": 20261027,
+    "max_tries": 12,
+    "recheck": true,
+    "version": 1,
+    "code": "f489af3d1a89a040",
+    "env": "f66539fef467dd81",
+    "clang": {
+     "python_binding": "14.0",
+     "library": "libclang.so.1",
+     "builtin_include": "497c403da4c32f51"
+    },
+    "strip_comments": true,
+    "level": "L3",
+    "obf": "05a02f26bef7a275",
+    "tree": "a51c0eb4dbe94058",
+    "gate": "2b00f4cc78e84b62",
+    "ref": "c3cb379791c78c13"
+   },
+   "n_targets": 18,
+   "n_searched": 18,
+   "n_killed": 18,
+   "n_abandoned": 0,
+   "outcomes": {
+    "killed": 18
+   },
+   "operators": {
+    "ROR": 1,
+    "NEG": 3,
+    "LOR": 3,
+    "OBO": 0,
+    "DGS": 0,
+    "AOR": 1,
+    "RVR": 4,
+    "DST": 6
+   },
+   "kill_modes": {
+    "runtime_crash": 4,
+    "test_fail": 13,
+    "runtime_timeout": 1
+   },
+   "same_operator_as_L0": {
+    "n": 18,
+    "same": 18
+   },
+   "same_site_as_L0": {
+    "n": 18,
+    "same": 14
+   },
+   "anchor": {
+    "chosen": 14,
+    "no_image": 4
+   },
+   "n_sites": 413,
+   "tried_sites": 18,
+   "equivalent_count": 0,
+   "compile_fail_count": 0,
+   "parse_fail_count": 0,
+   "unstable_count": 0,
+   "n_rechecked": 18,
+   "n_kill_label_changed": 0,
+   "n_with_orphans": 1,
+   "n_with_comments": 8,
+   "n_strip_checked": 8,
+   "n_strip_failed": 0,
+   "sandbox_seconds": {
+    "pass": 20.8,
+    "runtime_crash": 16.8,
+    "runtime_timeout": 61.3,
+    "test_fail": 48.9
+   },
+   "abandoned": []
+  }
+ },
+ "four_level": {
+  "n_targets": 18,
+  "n_all_levels": 18,
+  "n_same_operator": 18,
+  "n_same_site": 14
+ },
+ "sandbox": {
+  "image": "gcc:13",
+  "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",
+  "cpus": 1.0,
+  "memory": "1g",
+  "pids": 256,
+  "timeout_s": 120
+ }
+}

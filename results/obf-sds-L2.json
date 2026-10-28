@@ -3,7 +3,7 @@
  "corpus": "sds",
  "level": "L2",
  "seed": 20261027,
- "created": "2026-10-27T17:22:52+00:00",
+ "created": "2026-10-27T23:08:22+00:00",
  "inputs": {
   "spec": "391555a48c541fb4",
   "pristine": "0c737cf14e19e8a2",
@@ -12,7 +12,7 @@
   "strict": null,
   "targets": "7c7ecfeff2976a08",
   "version": 1,
-  "code": "cf3da71fe7c9228e",
+  "code": "ae3c821757d5ac82",
   "clang": {
    "python_binding": "14.0",
    "library": "libclang.so.1",
@@ -20,12 +20,12 @@
   },
   "env": "fe40f23a8559c0bb"
  },
- "input_hash": "2638193489bc7fbc",
+ "input_hash": "1acbb5313a85623d",
  "strict_stringify": false,
  "tree_hash": "9b42daff0c6c4baa",
  "ok": true,
  "problems": [],
- "elapsed_s": 1.37,
+ "elapsed_s": 1.26,
  "rename_map": {
   "SDS_LLSTR_SIZE": "M_8",
   "SDS_MAX_PREALLOC": "M_4",
@@ -306,7 +306,7 @@
   "missing": [],
   "tests_passed": true,
   "timed_out": false,
-  "duration_s": 0.7660555369802751,
+  "duration_s": 0.665782163006952,
   "n_targets": 16
  },
  "oracle_gate": {
@@ -351,15 +351,15 @@
    "sds:sds.c:sdsull2str"
   ],
   "inputs": {
-   "obf": "2638193489bc7fbc",
+   "obf": "1acbb5313a85623d",
    "tree": "9b42daff0c6c4baa",
    "targets": "7c7ecfeff2976a08",
    "version": 2,
-   "code": "6ec45e679e436985",
+   "code": "a726db396abe17c9",
    "env": "f66539fef467dd81"
   },
-  "input_hash": "8b8db05dbb46bc86",
-  "created": "2026-10-27T17:29:06+00:00",
+  "input_hash": "43e62f48b9198fb6",
+  "created": "2026-10-27T23:14:32+00:00",
   "sandbox": {
    "image": "gcc:13",
    "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",

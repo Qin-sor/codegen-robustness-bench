@@ -3,7 +3,7 @@
  "corpus": "parson",
  "level": "L0",
  "seed": 20261027,
- "created": "2026-10-27T17:22:39+00:00",
+ "created": "2026-10-27T23:08:10+00:00",
  "inputs": {
   "spec": "7ddc418baff5c18b",
   "pristine": "2ad80ff6bc5765ce",
@@ -12,11 +12,11 @@
   "strict": null,
   "targets": "b4729d30aef2e9e7",
   "version": 1,
-  "code": "cf3da71fe7c9228e",
+  "code": "ae3c821757d5ac82",
   "clang": null,
   "env": "fe40f23a8559c0bb"
  },
- "input_hash": "40bbd97d526828df",
+ "input_hash": "736c3e3210720307",
  "strict_stringify": false,
  "tree_hash": "2ad80ff6bc5765ce",
  "ok": true,
@@ -43,7 +43,7 @@
   "missing": [],
   "tests_passed": true,
   "timed_out": false,
-  "duration_s": 0.8158514710085001,
+  "duration_s": 0.8164004469872452,
   "n_targets": 50
  },
  "oracle_gate": {
@@ -156,15 +156,15 @@
    "parson:parson.c:skip_quotes"
   ],
   "inputs": {
-   "obf": "40bbd97d526828df",
+   "obf": "736c3e3210720307",
    "tree": "2ad80ff6bc5765ce",
    "targets": "b4729d30aef2e9e7",
    "version": 2,
-   "code": "6ec45e679e436985",
+   "code": "a726db396abe17c9",
    "env": "f66539fef467dd81"
   },
-  "input_hash": "61b67e2a811eed16",
-  "created": "2026-10-27T17:28:05+00:00",
+  "input_hash": "2003a208478b212a",
+  "created": "2026-10-27T23:13:30+00:00",
   "sandbox": {
    "image": "gcc:13",
    "image_id": "sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a",
