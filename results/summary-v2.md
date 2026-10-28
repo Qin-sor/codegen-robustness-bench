@@ -1,7 +1,7 @@
 # 评测汇总 · v2
 
-- 生成任务：样本记录 1576 条；模型 deepseek-flash, deepseek-v4-pro；语料 cjson, inih, jsmn, mpc, parson, sds, tiny-regex-c, tinyexpr, vec；混淆级别 L0, L1, L2, L3；不同目标 197 个。
-- 修复任务：样本记录 1658 条；模型 deepseek-flash, deepseek-v4-pro；语料 cjson, inih, jsmn, mpc, parson, sds, tiny-regex-c, tinyexpr, vec；混淆级别 L0, L1, L2, L3；不同目标 208 个。
+- 生成任务：样本记录 2364 条；模型 deepseek-flash, deepseek-flash-thinking, deepseek-v4-pro；语料 cjson, inih, jsmn, mpc, parson, sds, tiny-regex-c, tinyexpr, vec；混淆级别 L0, L1, L2, L3；不同目标 197 个。
+- 修复任务：样本记录 2487 条；模型 deepseek-flash, deepseek-flash-thinking, deepseek-v4-pro；语料 cjson, inih, jsmn, mpc, parson, sds, tiny-regex-c, tinyexpr, vec；混淆级别 L0, L1, L2, L3；不同目标 208 个。
 - 编译通过率 = 构建与链接成功、至少进入项目测试的比例（stage ≥ test）；通过率 = 项目自带测试全部通过的比例，区间是 Wilson 95% 置信区间。
 - 混淆级别：L0 原样；L1 符号；L2 +结构；L3 +语义（高一级包含低一级的全部变换）。生成任务的 L0 通过率是上限参考：功能规格由 LLM 生成，规格歧义会抬高所有级别的失败率。
 
@@ -19,6 +19,10 @@
 | deepseek-flash | L1 | 197 | 完整 | 197 | 95.4% | 49.2% | [42%, 56%] | 55.8% | 0.701 | - | 203177 | 71581 | 0 |
 | deepseek-flash | L2 | 197 | 完整 | 197 | 95.4% | 48.7% | [42%, 56%] | 53.9% | 0.691 | 92.9% | 203177 | 72144 | 177 |
 | deepseek-flash | L3 | 197 | 完整 | 197 | 95.4% | 49.2% | [42%, 56%] | 53.8% | 0.643 | 94.9% | 203177 | 68936 | 188 |
+| deepseek-flash-thinking | L0 | 197 | 完整 | 197 | 98.5% | 90.4% | [85%, 94%] | 92.0% | 0.845 | - | 209466 | 706059 | 0 |
+| deepseek-flash-thinking | L1 | 197 | 完整 | 197 | 89.3% | 69.0% | [62%, 75%] | 72.4% | 0.802 | - | 208102 | 2084992 | 0 |
+| deepseek-flash-thinking | L2 | 197 | 完整 | 197 | 92.9% | 71.1% | [64%, 77%] | 72.9% | 0.792 | 91.4% | 208102 | 1984332 | 166 |
+| deepseek-flash-thinking | L3 | 197 | 完整 | 197 | 92.4% | 70.6% | [64%, 76%] | 73.5% | 0.731 | 94.4% | 208102 | 2016464 | 179 |
 | deepseek-v4-pro | L0 | 197 | 完整 | 197 | 99.5% | 80.2% | [74%, 85%] | 76.9% | 0.776 | - | 204344 | 44486 | 0 |
 | deepseek-v4-pro | L1 | 197 | 完整 | 197 | 97.0% | 51.3% | [44%, 58%] | 55.5% | 0.714 | - | 202980 | 56912 | 0 |
 | deepseek-v4-pro | L2 | 197 | 完整 | 197 | 97.5% | 50.8% | [44%, 58%] | 55.2% | 0.715 | 92.9% | 202980 | 49135 | 176 |
@@ -35,6 +39,9 @@
 | deepseek-flash | L1 | 197 | 85.3% | 49.2% | -36.0 | 42.3% | 73 | 2 | 0.000 | -4.1 | 0.825 | 0.701 | - |
 | deepseek-flash | L2 | 197 | 85.3% | 48.7% | -36.5 | 42.9% | 73 | 1 | 0.000 | -4.1 | 0.825 | 0.691 | 183/197 |
 | deepseek-flash | L3 | 197 | 85.3% | 49.2% | -36.0 | 42.3% | 73 | 2 | 0.000 | -4.1 | 0.825 | 0.643 | 187/197 |
+| deepseek-flash-thinking | L1 | 197 | 90.4% | 69.0% | -21.3 | 23.6% | 44 | 2 | 0.000 | -9.1 | 0.852 | 0.802 | - |
+| deepseek-flash-thinking | L2 | 197 | 90.4% | 71.1% | -19.3 | 21.3% | 41 | 3 | 0.000 | -5.6 | 0.852 | 0.792 | 180/197 |
+| deepseek-flash-thinking | L3 | 197 | 90.4% | 70.6% | -19.8 | 21.9% | 42 | 3 | 0.000 | -6.1 | 0.852 | 0.731 | 186/197 |
 | deepseek-v4-pro | L1 | 197 | 80.2% | 51.3% | -28.9 | 36.1% | 60 | 3 | 0.000 | -2.5 | 0.776 | 0.714 | - |
 | deepseek-v4-pro | L2 | 197 | 80.2% | 50.8% | -29.4 | 36.7% | 60 | 2 | 0.000 | -2.0 | 0.776 | 0.715 | 183/197 |
 | deepseek-v4-pro | L3 | 197 | 80.2% | 50.8% | -29.4 | 36.7% | 60 | 2 | 0.000 | -2.0 | 0.776 | 0.664 | 189/197 |
@@ -51,6 +58,10 @@
 | deepseek-flash | L1 | 197 | 49.2% | 0.0% | 0.0% | 2.5% | 1.5% | 0.0% | 0.5% | 0.0% | 13.2% | 0.5% | 32.5% |
 | deepseek-flash | L2 | 197 | 48.7% | 0.0% | 0.0% | 2.5% | 1.5% | 0.0% | 0.5% | 0.0% | 14.2% | 0.5% | 32.0% |
 | deepseek-flash | L3 | 197 | 49.2% | 0.0% | 0.0% | 2.0% | 1.5% | 0.5% | 0.5% | 0.0% | 13.2% | 0.5% | 32.5% |
+| deepseek-flash-thinking | L0 | 197 | 90.4% | 1.5% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 3.6% | 0.5% | 4.1% |
+| deepseek-flash-thinking | L1 | 197 | 69.0% | 10.7% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 6.1% | 0.0% | 14.2% |
+| deepseek-flash-thinking | L2 | 197 | 71.1% | 7.1% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 5.6% | 0.0% | 16.2% |
+| deepseek-flash-thinking | L3 | 197 | 70.6% | 7.6% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 5.6% | 0.0% | 16.2% |
 | deepseek-v4-pro | L0 | 197 | 80.2% | 0.0% | 0.0% | 0.0% | 0.5% | 0.0% | 0.0% | 0.0% | 7.6% | 0.0% | 11.7% |
 | deepseek-v4-pro | L1 | 197 | 51.3% | 0.0% | 0.0% | 0.5% | 1.5% | 0.5% | 0.5% | 0.0% | 12.2% | 0.5% | 33.0% |
 | deepseek-v4-pro | L2 | 197 | 50.8% | 0.0% | 0.0% | 0.0% | 1.5% | 1.0% | 0.0% | 0.0% | 11.7% | 0.5% | 34.5% |
@@ -66,6 +77,10 @@
 | deepseek-flash | L1 | 197 | 0.0% | 0.0% | 0.0% | 2.5% | 0.0% | 0 |
 | deepseek-flash | L2 | 197 | 0.0% | 0.0% | 0.0% | 2.5% | 0.0% | 0 |
 | deepseek-flash | L3 | 197 | 0.0% | 0.0% | 0.0% | 2.0% | 0.0% | 0 |
+| deepseek-flash-thinking | L0 | 197 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
+| deepseek-flash-thinking | L1 | 197 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
+| deepseek-flash-thinking | L2 | 197 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
+| deepseek-flash-thinking | L3 | 197 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
 | deepseek-v4-pro | L0 | 197 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
 | deepseek-v4-pro | L1 | 197 | 0.0% | 0.0% | 0.0% | 1.0% | 0.0% | 0 |
 | deepseek-v4-pro | L2 | 197 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
@@ -89,6 +104,18 @@
 | deepseek-flash | L3 | test_fail | 149 | 70 | 47.0% |
 | deepseek-flash | L3 | runtime_crash | 45 | 26 | 57.8% |
 | deepseek-flash | L3 | runtime_timeout | 3 | 1 | 33.3% |
+| deepseek-flash-thinking | L0 | test_fail | 149 | 135 | 90.6% |
+| deepseek-flash-thinking | L0 | runtime_crash | 45 | 42 | 93.3% |
+| deepseek-flash-thinking | L0 | runtime_timeout | 3 | 1 | 33.3% |
+| deepseek-flash-thinking | L1 | test_fail | 149 | 99 | 66.4% |
+| deepseek-flash-thinking | L1 | runtime_crash | 45 | 36 | 80.0% |
+| deepseek-flash-thinking | L1 | runtime_timeout | 3 | 1 | 33.3% |
+| deepseek-flash-thinking | L2 | test_fail | 149 | 103 | 69.1% |
+| deepseek-flash-thinking | L2 | runtime_crash | 45 | 36 | 80.0% |
+| deepseek-flash-thinking | L2 | runtime_timeout | 3 | 1 | 33.3% |
+| deepseek-flash-thinking | L3 | test_fail | 149 | 102 | 68.5% |
+| deepseek-flash-thinking | L3 | runtime_crash | 45 | 36 | 80.0% |
+| deepseek-flash-thinking | L3 | runtime_timeout | 3 | 1 | 33.3% |
 | deepseek-v4-pro | L0 | test_fail | 149 | 120 | 80.5% |
 | deepseek-v4-pro | L0 | runtime_crash | 45 | 37 | 82.2% |
 | deepseek-v4-pro | L0 | runtime_timeout | 3 | 1 | 33.3% |
@@ -144,6 +171,42 @@
 | deepseek-flash | tiny-regex-c | L3 | 8 | - | 100.0% | 12.5% | [2%, 47%] | -62.5 | 0.782 |
 | deepseek-flash | tinyexpr | L3 | 18 | - | 100.0% | 38.9% | [20%, 61%] | -22.2 | 0.656 |
 | deepseek-flash | vec | L3 | 6 | - | 100.0% | 100.0% | [61%, 100%] | +16.7 | 0.662 |
+| deepseek-flash-thinking | cjson | L0 | 45 | - | 100.0% | 95.6% | [85%, 99%] | - | 0.842 |
+| deepseek-flash-thinking | inih | L0 | 5 | - | 100.0% | 100.0% | [57%, 100%] | - | 0.954 |
+| deepseek-flash-thinking | jsmn | L0 | 5 | - | 100.0% | 100.0% | [57%, 100%] | - | 0.962 |
+| deepseek-flash-thinking | mpc | L0 | 49 | - | 93.9% | 83.7% | [71%, 91%] | - | 0.854 |
+| deepseek-flash-thinking | parson | L0 | 45 | - | 100.0% | 93.3% | [82%, 98%] | - | 0.850 |
+| deepseek-flash-thinking | sds | L0 | 16 | - | 100.0% | 100.0% | [81%, 100%] | - | 0.820 |
+| deepseek-flash-thinking | tiny-regex-c | L0 | 8 | - | 100.0% | 100.0% | [68%, 100%] | - | 0.852 |
+| deepseek-flash-thinking | tinyexpr | L0 | 18 | - | 100.0% | 72.2% | [49%, 88%] | - | 0.781 |
+| deepseek-flash-thinking | vec | L0 | 6 | - | 100.0% | 83.3% | [44%, 97%] | - | 0.834 |
+| deepseek-flash-thinking | cjson | L1 | 45 | - | 97.8% | 88.9% | [77%, 95%] | -6.7 | 0.792 |
+| deepseek-flash-thinking | inih | L1 | 5 | - | 100.0% | 80.0% | [38%, 96%] | -20.0 | 0.859 |
+| deepseek-flash-thinking | jsmn | L1 | 5 | - | 100.0% | 100.0% | [57%, 100%] | +0.0 | 0.968 |
+| deepseek-flash-thinking | mpc | L1 | 49 | - | 73.5% | 38.8% | [26%, 53%] | -44.9 | 0.789 |
+| deepseek-flash-thinking | parson | L1 | 45 | - | 97.8% | 77.8% | [64%, 87%] | -15.6 | 0.827 |
+| deepseek-flash-thinking | sds | L1 | 16 | - | 100.0% | 93.8% | [72%, 99%] | -6.2 | 0.757 |
+| deepseek-flash-thinking | tiny-regex-c | L1 | 8 | - | 100.0% | 50.0% | [22%, 78%] | -50.0 | 0.790 |
+| deepseek-flash-thinking | tinyexpr | L1 | 18 | - | 66.7% | 55.6% | [34%, 75%] | -16.7 | 0.747 |
+| deepseek-flash-thinking | vec | L1 | 6 | - | 100.0% | 66.7% | [30%, 90%] | -16.7 | 0.830 |
+| deepseek-flash-thinking | cjson | L2 | 45 | - | 100.0% | 91.1% | [79%, 96%] | -4.4 | 0.786 |
+| deepseek-flash-thinking | inih | L2 | 5 | - | 100.0% | 80.0% | [38%, 96%] | -20.0 | 0.869 |
+| deepseek-flash-thinking | jsmn | L2 | 5 | - | 100.0% | 80.0% | [38%, 96%] | -20.0 | 0.909 |
+| deepseek-flash-thinking | mpc | L2 | 49 | - | 83.7% | 42.9% | [30%, 57%] | -40.8 | 0.766 |
+| deepseek-flash-thinking | parson | L2 | 45 | - | 97.8% | 77.8% | [64%, 87%] | -15.6 | 0.825 |
+| deepseek-flash-thinking | sds | L2 | 16 | - | 100.0% | 93.8% | [72%, 99%] | -6.2 | 0.768 |
+| deepseek-flash-thinking | tiny-regex-c | L2 | 8 | - | 100.0% | 62.5% | [31%, 86%] | -37.5 | 0.762 |
+| deepseek-flash-thinking | tinyexpr | L2 | 18 | - | 72.2% | 61.1% | [39%, 80%] | -11.1 | 0.759 |
+| deepseek-flash-thinking | vec | L2 | 6 | - | 100.0% | 66.7% | [30%, 90%] | -16.7 | 0.782 |
+| deepseek-flash-thinking | cjson | L3 | 45 | - | 97.8% | 88.9% | [77%, 95%] | -6.7 | 0.730 |
+| deepseek-flash-thinking | inih | L3 | 5 | - | 100.0% | 80.0% | [38%, 96%] | -20.0 | 0.799 |
+| deepseek-flash-thinking | jsmn | L3 | 5 | - | 100.0% | 100.0% | [57%, 100%] | +0.0 | 0.858 |
+| deepseek-flash-thinking | mpc | L3 | 49 | - | 85.7% | 42.9% | [30%, 57%] | -40.8 | 0.706 |
+| deepseek-flash-thinking | parson | L3 | 45 | - | 97.8% | 77.8% | [64%, 87%] | -15.6 | 0.753 |
+| deepseek-flash-thinking | sds | L3 | 16 | - | 100.0% | 93.8% | [72%, 99%] | -6.2 | 0.724 |
+| deepseek-flash-thinking | tiny-regex-c | L3 | 8 | - | 87.5% | 50.0% | [22%, 78%] | -50.0 | 0.727 |
+| deepseek-flash-thinking | tinyexpr | L3 | 18 | - | 72.2% | 61.1% | [39%, 80%] | -11.1 | 0.686 |
+| deepseek-flash-thinking | vec | L3 | 6 | - | 100.0% | 66.7% | [30%, 90%] | -16.7 | 0.700 |
 | deepseek-v4-pro | cjson | L0 | 45 | - | 100.0% | 77.8% | [64%, 87%] | - | 0.747 |
 | deepseek-v4-pro | inih | L0 | 5 | - | 100.0% | 100.0% | [57%, 100%] | - | 0.750 |
 | deepseek-v4-pro | jsmn | L0 | 5 | - | 100.0% | 60.0% | [23%, 88%] | - | 0.870 |
@@ -193,6 +256,10 @@
 | deepseek-flash | L1 | 207 | 完整 | 207 | 99.5% | 63.8% | [57%, 70%] | 63.5% | 4.3% | 45.9% | 0.958 | 188621 | 47555 | 0 |
 | deepseek-flash | L2 | 207 | 完整 | 207 | 99.5% | 65.2% | [59%, 71%] | 64.2% | 4.8% | 46.4% | 0.959 | 188972 | 47859 | 144 |
 | deepseek-flash | L3 | 207 | 完整 | 207 | 99.5% | 63.8% | [57%, 70%] | 62.3% | 9.7% | 41.5% | 0.953 | 192797 | 51365 | 0 |
+| deepseek-flash-thinking | L0 | 208 | 完整 | 208 | 97.1% | 89.9% | [85%, 93%] | 89.0% | 0.0% | 71.2% | 0.974 | 190058 | 604757 | 0 |
+| deepseek-flash-thinking | L1 | 207 | 完整 | 207 | 89.4% | 80.7% | [75%, 85%] | 83.1% | 0.0% | 63.8% | 0.974 | 193796 | 1974250 | 0 |
+| deepseek-flash-thinking | L2 | 207 | 完整 | 207 | 92.8% | 83.1% | [77%, 88%] | 84.6% | 0.0% | 60.9% | 0.973 | 194147 | 1779569 | 130 |
+| deepseek-flash-thinking | L3 | 207 | 完整 | 207 | 87.0% | 75.8% | [70%, 81%] | 78.0% | 0.0% | 24.6% | 0.924 | 197972 | 2254148 | 0 |
 | deepseek-v4-pro | L0 | 208 | 完整 | 208 | 100.0% | 83.2% | [77%, 88%] | 84.3% | 4.3% | 66.3% | 0.975 | 184650 | 40052 | 0 |
 | deepseek-v4-pro | L1 | 207 | 完整 | 207 | 99.5% | 59.9% | [53%, 66%] | 55.5% | 18.8% | 46.4% | 0.973 | 188414 | 46506 | 0 |
 | deepseek-v4-pro | L2 | 207 | 完整 | 207 | 99.5% | 58.5% | [52%, 65%] | 52.0% | 19.3% | 43.0% | 0.973 | 188765 | 46734 | 144 |
@@ -210,6 +277,10 @@ unchanged = 候选与变异体规范化后相同（模型什么也没改，必�
 | deepseek-flash | L1 | 49.2% | 63.8% | 70.7% | 4.3% | 45.9% |
 | deepseek-flash | L2 | 48.7% | 65.2% | 70.7% | 4.8% | 46.4% |
 | deepseek-flash | L3 | 49.2% | 63.8% | 72.0% | 9.7% | 41.5% |
+| deepseek-flash-thinking | L0 | 90.4% | 89.9% | 96.0% | 0.0% | 71.2% |
+| deepseek-flash-thinking | L1 | 69.0% | 80.7% | 90.7% | 0.0% | 63.8% |
+| deepseek-flash-thinking | L2 | 71.1% | 83.1% | 90.7% | 0.0% | 60.9% |
+| deepseek-flash-thinking | L3 | 70.6% | 75.8% | 82.0% | 0.0% | 24.6% |
 | deepseek-v4-pro | L0 | 80.2% | 83.2% | 92.7% | 4.3% | 66.3% |
 | deepseek-v4-pro | L1 | 51.3% | 59.9% | 66.7% | 18.8% | 46.4% |
 | deepseek-v4-pro | L2 | 50.8% | 58.5% | 64.0% | 19.3% | 43.0% |
@@ -224,6 +295,9 @@ unchanged = 候选与变异体规范化后相同（模型什么也没改，必�
 | deepseek-flash | L1 | 207 | 86.0% | 63.8% | -22.2 | 25.8% | 51 | 5 | 0.000 | -0.5 | 0.972 | 0.958 |
 | deepseek-flash | L2 | 207 | 86.0% | 65.2% | -20.8 | 24.2% | 47 | 4 | 0.000 | -0.5 | 0.972 | 0.959 |
 | deepseek-flash | L3 | 207 | 86.0% | 63.8% | -22.2 | 25.8% | 51 | 5 | 0.000 | -0.5 | 0.972 | 0.953 |
+| deepseek-flash-thinking | L1 | 207 | 90.3% | 80.7% | -9.7 | 10.7% | 24 | 4 | 0.000 | -8.2 | 0.978 | 0.979 |
+| deepseek-flash-thinking | L2 | 207 | 90.3% | 83.1% | -7.2 | 8.0% | 19 | 4 | 0.003 | -4.8 | 0.977 | 0.976 |
+| deepseek-flash-thinking | L3 | 207 | 90.3% | 75.8% | -14.5 | 16.0% | 33 | 3 | 0.000 | -10.6 | 0.982 | 0.924 |
 | deepseek-v4-pro | L1 | 207 | 83.6% | 59.9% | -23.7 | 28.3% | 53 | 4 | 0.000 | -0.5 | 0.975 | 0.973 |
 | deepseek-v4-pro | L2 | 207 | 83.6% | 58.5% | -25.1 | 30.1% | 57 | 5 | 0.000 | -0.5 | 0.975 | 0.973 |
 | deepseek-v4-pro | L3 | 207 | 83.6% | 52.7% | -30.9 | 37.0% | 68 | 4 | 0.000 | -0.5 | 0.975 | 0.903 |
@@ -244,6 +318,10 @@ unchanged = 候选与变异体规范化后相同（模型什么也没改，必�
 | deepseek-flash | L1 | 150 | 150 | 100.0% | 70.7% | [63%, 77%] | -22.0 | 23.7% | 0.000 | 6.0% | 52.0% | 0.973 |
 | deepseek-flash | L2 | 150 | 150 | 100.0% | 70.7% | [63%, 77%] | -22.0 | 23.7% | 0.000 | 6.0% | 51.3% | 0.973 |
 | deepseek-flash | L3 | 150 | 150 | 100.0% | 72.0% | [64%, 79%] | -20.7 | 22.3% | 0.000 | 8.7% | 48.0% | 0.968 |
+| deepseek-flash-thinking | L0 | 150 | 150 | 100.0% | 96.0% | [92%, 98%] | - | - | - | 0.0% | 80.7% | 0.989 |
+| deepseek-flash-thinking | L1 | 150 | 150 | 94.0% | 90.7% | [85%, 94%] | -5.3 | 5.6% | 0.057 | 0.0% | 74.7% | 0.991 |
+| deepseek-flash-thinking | L2 | 150 | 150 | 95.3% | 90.7% | [85%, 94%] | -5.3 | 5.6% | 0.057 | 0.0% | 70.7% | 0.987 |
+| deepseek-flash-thinking | L3 | 150 | 150 | 90.0% | 82.0% | [75%, 87%] | -14.0 | 14.6% | 0.000 | 0.0% | 29.3% | 0.938 |
 | deepseek-v4-pro | L0 | 150 | 150 | 100.0% | 92.7% | [87%, 96%] | - | - | - | 3.3% | 74.0% | 0.989 |
 | deepseek-v4-pro | L1 | 150 | 150 | 100.0% | 66.7% | [59%, 74%] | -26.0 | 28.1% | 0.000 | 18.0% | 52.7% | 0.984 |
 | deepseek-v4-pro | L2 | 150 | 150 | 100.0% | 64.0% | [56%, 71%] | -28.7 | 30.9% | 0.000 | 18.0% | 48.7% | 0.983 |
@@ -258,6 +336,9 @@ unchanged = 候选与变异体规范化后相同（模型什么也没改，必�
 | deepseek-flash | L1 | 171 | 92.4% | 69.0% | -23.4 | 25.3% | 43 | 3 | 0.000 |
 | deepseek-flash | L2 | 162 | 92.0% | 70.4% | -21.6 | 23.5% | 37 | 2 | 0.000 |
 | deepseek-flash | L3 | 150 | 92.7% | 72.0% | -20.7 | 22.3% | 35 | 4 | 0.000 |
+| deepseek-flash-thinking | L1 | 171 | 94.7% | 88.3% | -6.4 | 6.8% | 14 | 3 | 0.013 |
+| deepseek-flash-thinking | L2 | 162 | 95.1% | 90.1% | -4.9 | 5.2% | 11 | 3 | 0.057 |
+| deepseek-flash-thinking | L3 | 150 | 96.0% | 82.0% | -14.0 | 14.6% | 22 | 1 | 0.000 |
 | deepseek-v4-pro | L1 | 171 | 90.6% | 65.5% | -25.1 | 27.7% | 45 | 2 | 0.000 |
 | deepseek-v4-pro | L2 | 162 | 92.0% | 64.2% | -27.8 | 30.2% | 47 | 2 | 0.000 |
 | deepseek-v4-pro | L3 | 150 | 92.7% | 57.3% | -35.3 | 38.1% | 54 | 1 | 0.000 |
@@ -270,6 +351,10 @@ unchanged = 候选与变异体规范化后相同（模型什么也没改，必�
 | deepseek-flash | L1 | 207 | 63.8% | 0.0% | 0.0% | 0.0% | 0.0% | 0.5% | 0.0% | 0.0% | 10.6% | 0.0% | 25.1% |
 | deepseek-flash | L2 | 207 | 65.2% | 0.0% | 0.0% | 0.0% | 0.0% | 0.5% | 0.0% | 0.0% | 10.1% | 0.0% | 24.2% |
 | deepseek-flash | L3 | 207 | 63.8% | 0.0% | 0.0% | 0.0% | 0.0% | 0.5% | 0.0% | 0.0% | 10.6% | 0.5% | 24.6% |
+| deepseek-flash-thinking | L0 | 208 | 89.9% | 2.4% | 0.0% | 0.0% | 0.5% | 0.0% | 0.0% | 0.0% | 1.0% | 0.0% | 6.2% |
+| deepseek-flash-thinking | L1 | 207 | 80.7% | 10.1% | 0.0% | 0.0% | 0.0% | 0.5% | 0.0% | 0.0% | 3.4% | 0.0% | 5.3% |
+| deepseek-flash-thinking | L2 | 207 | 83.1% | 6.3% | 0.0% | 1.0% | 0.0% | 0.0% | 0.0% | 0.0% | 2.9% | 0.0% | 6.8% |
+| deepseek-flash-thinking | L3 | 207 | 75.8% | 13.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 3.4% | 0.0% | 7.7% |
 | deepseek-v4-pro | L0 | 208 | 83.2% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 4.8% | 0.0% | 12.0% |
 | deepseek-v4-pro | L1 | 207 | 59.9% | 0.0% | 0.0% | 0.0% | 0.0% | 0.5% | 0.0% | 0.0% | 10.6% | 0.0% | 29.0% |
 | deepseek-v4-pro | L2 | 207 | 58.5% | 0.0% | 0.0% | 0.0% | 0.0% | 0.5% | 0.0% | 0.0% | 10.6% | 0.0% | 30.4% |
@@ -285,6 +370,10 @@ unchanged = 候选与变异体规范化后相同（模型什么也没改，必�
 | deepseek-flash | L1 | 207 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
 | deepseek-flash | L2 | 207 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
 | deepseek-flash | L3 | 207 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
+| deepseek-flash-thinking | L0 | 208 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
+| deepseek-flash-thinking | L1 | 207 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
+| deepseek-flash-thinking | L2 | 207 | 0.0% | 0.0% | 0.0% | 1.0% | 0.0% | 0 |
+| deepseek-flash-thinking | L3 | 207 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
 | deepseek-v4-pro | L0 | 208 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
 | deepseek-v4-pro | L1 | 207 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
 | deepseek-v4-pro | L2 | 207 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% | 0 |
@@ -308,6 +397,18 @@ unchanged = 候选与变异体规范化后相同（模型什么也没改，必�
 | deepseek-flash | L3 | test_fail | 149 | 96 | 64.4% |
 | deepseek-flash | L3 | runtime_crash | 56 | 34 | 60.7% |
 | deepseek-flash | L3 | runtime_timeout | 2 | 2 | 100.0% |
+| deepseek-flash-thinking | L0 | test_fail | 150 | 131 | 87.3% |
+| deepseek-flash-thinking | L0 | runtime_crash | 56 | 54 | 96.4% |
+| deepseek-flash-thinking | L0 | runtime_timeout | 2 | 2 | 100.0% |
+| deepseek-flash-thinking | L1 | test_fail | 148 | 120 | 81.1% |
+| deepseek-flash-thinking | L1 | runtime_crash | 56 | 45 | 80.4% |
+| deepseek-flash-thinking | L1 | runtime_timeout | 3 | 2 | 66.7% |
+| deepseek-flash-thinking | L2 | test_fail | 149 | 124 | 83.2% |
+| deepseek-flash-thinking | L2 | runtime_crash | 55 | 46 | 83.6% |
+| deepseek-flash-thinking | L2 | runtime_timeout | 3 | 2 | 66.7% |
+| deepseek-flash-thinking | L3 | test_fail | 149 | 114 | 76.5% |
+| deepseek-flash-thinking | L3 | runtime_crash | 56 | 41 | 73.2% |
+| deepseek-flash-thinking | L3 | runtime_timeout | 2 | 2 | 100.0% |
 | deepseek-v4-pro | L0 | test_fail | 150 | 125 | 83.3% |
 | deepseek-v4-pro | L0 | runtime_crash | 56 | 46 | 82.1% |
 | deepseek-v4-pro | L0 | runtime_timeout | 2 | 2 | 100.0% |
@@ -339,6 +440,18 @@ kill_mode 说的是**这个具体缺陷**怎么被项目测试发现的：test_f
 | deepseek-flash | L3 | test_fail | 159 | 101 | 63.5% |
 | deepseek-flash | L3 | runtime_crash | 45 | 28 | 62.2% |
 | deepseek-flash | L3 | runtime_timeout | 3 | 3 | 100.0% |
+| deepseek-flash-thinking | L0 | test_fail | 160 | 143 | 89.4% |
+| deepseek-flash-thinking | L0 | runtime_crash | 45 | 41 | 91.1% |
+| deepseek-flash-thinking | L0 | runtime_timeout | 3 | 3 | 100.0% |
+| deepseek-flash-thinking | L1 | test_fail | 159 | 128 | 80.5% |
+| deepseek-flash-thinking | L1 | runtime_crash | 45 | 36 | 80.0% |
+| deepseek-flash-thinking | L1 | runtime_timeout | 3 | 3 | 100.0% |
+| deepseek-flash-thinking | L2 | test_fail | 159 | 133 | 83.6% |
+| deepseek-flash-thinking | L2 | runtime_crash | 45 | 36 | 80.0% |
+| deepseek-flash-thinking | L2 | runtime_timeout | 3 | 3 | 100.0% |
+| deepseek-flash-thinking | L3 | test_fail | 159 | 120 | 75.5% |
+| deepseek-flash-thinking | L3 | runtime_crash | 45 | 34 | 75.6% |
+| deepseek-flash-thinking | L3 | runtime_timeout | 3 | 3 | 100.0% |
 | deepseek-v4-pro | L0 | test_fail | 160 | 131 | 81.9% |
 | deepseek-v4-pro | L0 | runtime_crash | 45 | 39 | 86.7% |
 | deepseek-v4-pro | L0 | runtime_timeout | 3 | 3 | 100.0% |
@@ -362,6 +475,10 @@ kill_mode 说的是**这个具体缺陷**怎么被项目测试发现的：test_f
 | deepseek-flash | L1 | 118/171（69.0%） | 14/36（38.9%） |
 | deepseek-flash | L2 | 121/171（70.8%） | 14/36（38.9%） |
 | deepseek-flash | L3 | 121/172（70.3%） | 11/35（31.4%） |
+| deepseek-flash-thinking | L0 | 162/171（94.7%） | 25/37（67.6%） |
+| deepseek-flash-thinking | L1 | 151/171（88.3%） | 16/36（44.4%） |
+| deepseek-flash-thinking | L2 | 153/171（89.5%） | 19/36（52.8%） |
+| deepseek-flash-thinking | L3 | 141/172（82.0%） | 16/35（45.7%） |
 | deepseek-v4-pro | L0 | 155/171（90.6%） | 18/37（48.6%） |
 | deepseek-v4-pro | L1 | 112/171（65.5%） | 12/36（33.3%） |
 | deepseek-v4-pro | L2 | 109/171（63.7%） | 12/36（33.3%） |
@@ -381,6 +498,14 @@ kill_mode 说的是**这个具体缺陷**怎么被项目测试发现的：test_f
 | deepseek-flash | AOR（算术算子替换） | 87.5%（7/8） | 75.0%（6/8） | 75.0%（6/8） | 75.0%（6/8） |
 | deepseek-flash | RVR（返回值替换） | 85.4%（35/41） | 65.9%（27/41） | 68.3%（28/41） | 65.9%（27/41） |
 | deepseek-flash | DST（删语句） | 75.9%（44/58） | 47.4%（27/57） | 45.6%（26/57） | 47.4%（27/57） |
+| deepseek-flash-thinking | ROR（关系算子替换） | 93.8%（30/32） | 96.9%（31/32） | 93.8%（30/32） | 90.6%（29/32） |
+| deepseek-flash-thinking | NEG（条件取反） | 100.0%（39/39） | 92.3%（36/39） | 94.9%（37/39） | 92.3%（36/39） |
+| deepseek-flash-thinking | LOR（逻辑算子替换） | 83.3%（10/12） | 83.3%（10/12） | 91.7%（11/12） | 66.7%（8/12） |
+| deepseek-flash-thinking | OBO（差一） | 100.0%（7/7） | 85.7%（6/7） | 85.7%（6/7） | 71.4%（5/7） |
+| deepseek-flash-thinking | DGS（删守卫） | 90.9%（10/11） | 45.5%（5/11） | 63.6%（7/11） | 45.5%（5/11） |
+| deepseek-flash-thinking | AOR（算术算子替换） | 87.5%（7/8） | 87.5%（7/8） | 87.5%（7/8） | 87.5%（7/8） |
+| deepseek-flash-thinking | RVR（返回值替换） | 90.2%（37/41） | 82.9%（34/41） | 82.9%（34/41） | 78.0%（32/41） |
+| deepseek-flash-thinking | DST（删语句） | 81.0%（47/58） | 66.7%（38/57） | 70.2%（40/57） | 61.4%（35/57） |
 | deepseek-v4-pro | ROR（关系算子替换） | 93.8%（30/32） | 75.0%（24/32） | 75.0%（24/32） | 68.8%（22/32） |
 | deepseek-v4-pro | NEG（条件取反） | 89.7%（35/39） | 69.2%（27/39） | 71.8%（28/39） | 69.2%（27/39） |
 | deepseek-v4-pro | LOR（逻辑算子替换） | 91.7%（11/12） | 50.0%（6/12） | 41.7%（5/12） | 50.0%（6/12） |
@@ -434,6 +559,42 @@ kill_mode 说的是**这个具体缺陷**怎么被项目测试发现的：test_f
 | deepseek-flash | tiny-regex-c | L3 | 8 | - | 100.0% | 37.5% | [14%, 69%] | -25.0 | 25.0% | 37.5% | 0.980 |
 | deepseek-flash | tinyexpr | L3 | 18 | - | 100.0% | 83.3% | [61%, 94%] | -11.1 | 5.6% | 66.7% | 0.991 |
 | deepseek-flash | vec | L3 | 6 | - | 100.0% | 33.3% | [10%, 70%] | -50.0 | 16.7% | 16.7% | 0.970 |
+| deepseek-flash-thinking | cjson | L0 | 50 | - | 98.0% | 94.0% | [84%, 98%] | - | 0.0% | 74.0% | 0.940 |
+| deepseek-flash-thinking | inih | L0 | 5 | - | 80.0% | 80.0% | [38%, 96%] | - | 0.0% | 60.0% | 0.980 |
+| deepseek-flash-thinking | jsmn | L0 | 5 | - | 100.0% | 100.0% | [57%, 100%] | - | 0.0% | 100.0% | 1.000 |
+| deepseek-flash-thinking | mpc | L0 | 50 | - | 96.0% | 80.0% | [67%, 89%] | - | 0.0% | 58.0% | 0.969 |
+| deepseek-flash-thinking | parson | L0 | 50 | - | 100.0% | 94.0% | [84%, 98%] | - | 0.0% | 80.0% | 0.994 |
+| deepseek-flash-thinking | sds | L0 | 16 | - | 100.0% | 100.0% | [81%, 100%] | - | 0.0% | 68.8% | 0.985 |
+| deepseek-flash-thinking | tiny-regex-c | L0 | 8 | - | 87.5% | 75.0% | [41%, 93%] | - | 0.0% | 75.0% | 0.995 |
+| deepseek-flash-thinking | tinyexpr | L0 | 18 | - | 94.4% | 94.4% | [74%, 99%] | - | 0.0% | 72.2% | 0.993 |
+| deepseek-flash-thinking | vec | L0 | 6 | - | 100.0% | 83.3% | [44%, 97%] | - | 0.0% | 66.7% | 0.998 |
+| deepseek-flash-thinking | cjson | L1 | 50 | - | 88.0% | 84.0% | [71%, 92%] | -10.0 | 0.0% | 60.0% | 0.970 |
+| deepseek-flash-thinking | inih | L1 | 5 | - | 80.0% | 80.0% | [38%, 96%] | +0.0 | 0.0% | 60.0% | 0.809 |
+| deepseek-flash-thinking | jsmn | L1 | 5 | - | 100.0% | 80.0% | [38%, 96%] | -20.0 | 0.0% | 80.0% | 0.989 |
+| deepseek-flash-thinking | mpc | L1 | 49 | - | 81.6% | 69.4% | [55%, 80%] | -12.2 | 0.0% | 44.9% | 0.972 |
+| deepseek-flash-thinking | parson | L1 | 50 | - | 96.0% | 80.0% | [67%, 89%] | -14.0 | 0.0% | 76.0% | 0.975 |
+| deepseek-flash-thinking | sds | L1 | 16 | - | 100.0% | 100.0% | [81%, 100%] | +0.0 | 0.0% | 87.5% | 0.999 |
+| deepseek-flash-thinking | tiny-regex-c | L1 | 8 | - | 87.5% | 87.5% | [53%, 98%] | +12.5 | 0.0% | 50.0% | 0.987 |
+| deepseek-flash-thinking | tinyexpr | L1 | 18 | - | 83.3% | 83.3% | [61%, 94%] | -11.1 | 0.0% | 72.2% | 0.996 |
+| deepseek-flash-thinking | vec | L1 | 6 | - | 100.0% | 83.3% | [44%, 97%] | +0.0 | 0.0% | 66.7% | 0.992 |
+| deepseek-flash-thinking | cjson | L2 | 50 | - | 92.0% | 86.0% | [74%, 93%] | -8.0 | 0.0% | 56.0% | 0.965 |
+| deepseek-flash-thinking | inih | L2 | 5 | - | 80.0% | 80.0% | [38%, 96%] | +0.0 | 0.0% | 60.0% | 0.860 |
+| deepseek-flash-thinking | jsmn | L2 | 5 | - | 100.0% | 80.0% | [38%, 96%] | -20.0 | 0.0% | 60.0% | 0.989 |
+| deepseek-flash-thinking | mpc | L2 | 49 | - | 83.7% | 73.5% | [60%, 84%] | -8.2 | 0.0% | 46.9% | 0.976 |
+| deepseek-flash-thinking | parson | L2 | 50 | - | 98.0% | 82.0% | [69%, 90%] | -12.0 | 0.0% | 74.0% | 0.974 |
+| deepseek-flash-thinking | sds | L2 | 16 | - | 100.0% | 100.0% | [81%, 100%] | +0.0 | 0.0% | 62.5% | 0.981 |
+| deepseek-flash-thinking | tiny-regex-c | L2 | 8 | - | 100.0% | 87.5% | [53%, 98%] | +12.5 | 0.0% | 62.5% | 0.988 |
+| deepseek-flash-thinking | tinyexpr | L2 | 18 | - | 94.4% | 88.9% | [67%, 97%] | -5.6 | 0.0% | 72.2% | 0.995 |
+| deepseek-flash-thinking | vec | L2 | 6 | - | 100.0% | 83.3% | [44%, 97%] | +0.0 | 0.0% | 66.7% | 0.996 |
+| deepseek-flash-thinking | cjson | L3 | 50 | - | 92.0% | 86.0% | [74%, 93%] | -8.0 | 0.0% | 18.0% | 0.917 |
+| deepseek-flash-thinking | inih | L3 | 5 | - | 80.0% | 80.0% | [38%, 96%] | +0.0 | 0.0% | 40.0% | 0.965 |
+| deepseek-flash-thinking | jsmn | L3 | 5 | - | 100.0% | 80.0% | [38%, 96%] | -20.0 | 0.0% | 60.0% | 0.950 |
+| deepseek-flash-thinking | mpc | L3 | 49 | - | 75.5% | 63.3% | [49%, 75%] | -18.4 | 0.0% | 8.2% | 0.905 |
+| deepseek-flash-thinking | parson | L3 | 50 | - | 90.0% | 68.0% | [54%, 79%] | -26.0 | 0.0% | 12.0% | 0.898 |
+| deepseek-flash-thinking | sds | L3 | 16 | - | 100.0% | 100.0% | [81%, 100%] | +0.0 | 0.0% | 62.5% | 0.965 |
+| deepseek-flash-thinking | tiny-regex-c | L3 | 8 | - | 75.0% | 75.0% | [41%, 93%] | +0.0 | 0.0% | 50.0% | 0.988 |
+| deepseek-flash-thinking | tinyexpr | L3 | 18 | - | 83.3% | 83.3% | [61%, 94%] | -11.1 | 0.0% | 50.0% | 0.957 |
+| deepseek-flash-thinking | vec | L3 | 6 | - | 100.0% | 66.7% | [30%, 90%] | -16.7 | 0.0% | 66.7% | 0.992 |
 | deepseek-v4-pro | cjson | L0 | 50 | - | 100.0% | 82.0% | [69%, 90%] | - | 4.0% | 62.0% | 0.951 |
 | deepseek-v4-pro | inih | L0 | 5 | - | 100.0% | 80.0% | [38%, 96%] | - | 0.0% | 60.0% | 0.973 |
 | deepseek-v4-pro | jsmn | L0 | 5 | - | 100.0% | 100.0% | [57%, 100%] | - | 0.0% | 100.0% | 1.000 |
@@ -617,8 +778,10 @@ describe_failed = 重试用尽仍泄漏项目标识符，该目标被排除。�
 - prompt 模板摘要 628a6d1245cf3c17（修复任务 ff7584316bd9eb77）；评测相关代码摘要 a726db396abe17c9；变异体（mutate）相关代码摘要 f489af3d1a89a040。
 - 沙箱：image=gcc:13, image_id=sha256:20eec427045c47d0aad1bd28c81d435916c327cd992240aa78350f755d04d04a, cpus=1.0, memory=1g, pids=256, timeout_s=120
 - 模型 deepseek-flash：api_model=deepseek-flash；llm_fp=c365aa35fafb220c；temperature=0.0；max_tokens=4096；system_fingerprint=bc19ba97cbe016479903222bb1578db6；reply_model=deepseek-flash
+- 模型 deepseek-flash-thinking：api_model=deepseek-flash；llm_fp=843775e653dcde73；temperature=0.0；max_tokens=4096；system_fingerprint=bc19ba97cbe016479903222bb1578db6；reply_model=deepseek-flash
 - 模型 deepseek-v4-pro：api_model=deepseek-v4-pro；llm_fp=116aef5a9a597dd0；temperature=0.0；max_tokens=4096；system_fingerprint=a307abda487cd1b463329ccb945ce396；reply_model=deepseek-v4-pro
 - 模型 deepseek-flash（修复）：api_model=deepseek-flash；llm_fp=c365aa35fafb220c；temperature=0.0；max_tokens=4096；system_fingerprint=bc19ba97cbe016479903222bb1578db6；reply_model=deepseek-flash
+- 模型 deepseek-flash-thinking（修复）：api_model=deepseek-flash；llm_fp=843775e653dcde73；temperature=0.0；max_tokens=4096；system_fingerprint=bc19ba97cbe016479903222bb1578db6；reply_model=deepseek-flash
 - 模型 deepseek-v4-pro（修复）：api_model=deepseek-v4-pro；llm_fp=116aef5a9a597dd0；temperature=0.0；max_tokens=4096；system_fingerprint=a307abda487cd1b463329ccb945ce396；reply_model=deepseek-v4-pro
 
 | 语料 | 级别 | seed | 副本源码树哈希 | oracle gate 输入哈希 | 宿主内置头摘要 |
